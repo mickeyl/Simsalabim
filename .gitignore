@@ -1,0 +1,8 @@
+.build/
+.swiftpm/
+*.app
+*.dSYM
+Simsalabim.zip
+.DS_Store
+xcuserdata/
+Modules/*/Sources/*/.build/

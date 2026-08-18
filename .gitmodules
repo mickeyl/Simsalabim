@@ -1,0 +1,6 @@
+[submodule "Modules/ImpossiBLE"]
+	path = Modules/ImpossiBLE
+	url = https://github.com/mickeyl/ImpossiBLE.git
+[submodule "Modules/CAMouflage"]
+	path = Modules/CAMouflage
+	url = https://github.com/mickeyl/CAMouflage.git
