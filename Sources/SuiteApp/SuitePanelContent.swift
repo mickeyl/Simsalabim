@@ -23,6 +23,10 @@ struct SuitePanelContent: View {
     @State private var dismissOnDeactivate = ShellPreferences.dismissControlWindowOnDeactivate
     @State private var launchAtLogin = SuitePanelContent.launchAgent.isEnabled
     @State private var confirmTermination = false
+    // Collapsed modules keep their header (with the status dot) visible, so a
+    // parked provider still signals its health while yielding panel space.
+    @AppStorage("ImpossiBLECollapsed") private var bleCollapsed = false
+    @AppStorage("CAMouflageCollapsed") private var camCollapsed = false
     private static let launchAgent = LaunchAtLogin(label: "de.vanille.simsalabim")
 
     var body: some View {
@@ -34,24 +38,28 @@ struct SuitePanelContent: View {
             moduleHeader(
                 name: "ImpossiBLE",
                 detail: "Bluetooth LE",
-                color: ImpossiBLESection.statusColor(mode: bleController.mode, status: bleTransport.status)
+                color: ImpossiBLESection.statusColor(mode: bleController.mode, status: bleTransport.status),
+                isExpanded: $bleCollapsed.inverted
             ) {
                 Image(nsImage: FontAwesome.brandImage(FontAwesome.bluetoothB, size: 14))
             }
-            // Flexible: the BLE device/activity lists absorb whatever height
-            // the panel has to spare; the camera section below is intrinsic.
-            ImpossiBLESection(
-                store: store,
-                server: bleServer,
-                transport: bleTransport,
-                activity: bleActivity,
-                controller: bleController,
-                showsClient: false,
-                onDismiss: onDismiss,
-                onOpenCapture: onOpenCapture,
-                onOpenDevice: onOpenDevice
-            )
-            .frame(minHeight: 280, maxHeight: .infinity)
+            if !bleCollapsed {
+                // Flexible: the BLE device/activity lists absorb whatever height
+                // the panel has to spare; the camera section below is intrinsic.
+                ImpossiBLESection(
+                    store: store,
+                    server: bleServer,
+                    transport: bleTransport,
+                    activity: bleActivity,
+                    controller: bleController,
+                    showsClient: false,
+                    onDismiss: onDismiss,
+                    onOpenCapture: onOpenCapture,
+                    onOpenDevice: onOpenDevice
+                )
+                .frame(minHeight: 280, maxHeight: .infinity)
+                .layoutPriority(1)
+            }
             Divider()
 
             moduleHeader(
@@ -61,21 +69,25 @@ struct SuitePanelContent: View {
                     mode: camController.mode,
                     status: camTransport.status,
                     trafficActive: camServer.trafficActive
-                )
+                ),
+                isExpanded: $camCollapsed.inverted
             ) {
                 Image(systemName: "camera.aperture")
                     .font(.caption)
             }
-            CAMouflageSection(
-                server: camServer,
-                transport: camTransport,
-                catalog: camCatalog,
-                controller: camController,
-                showsClient: false
-            )
-            .padding(12)
+            if !camCollapsed {
+                CAMouflageSection(
+                    server: camServer,
+                    transport: camTransport,
+                    catalog: camCatalog,
+                    controller: camController,
+                    showsClient: false
+                )
+                .padding(12)
+            }
             Divider()
 
+            Spacer(minLength: 0)
             footer
         }
         .background(Color.clear)
@@ -181,24 +193,38 @@ struct SuitePanelContent: View {
         name: String,
         detail: String,
         color: Color,
+        isExpanded: Binding<Bool>,
         @ViewBuilder icon: () -> Icon
     ) -> some View {
-        HStack(spacing: 6) {
-            icon()
-                .foregroundStyle(color)
-            Text(name)
-                .font(.subheadline.weight(.semibold))
-            Text(detail)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Circle()
-                .fill(color)
-                .frame(width: 7, height: 7)
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isExpanded.wrappedValue.toggle()
+            }
+        } label: {
+            HStack(spacing: 6) {
+                icon()
+                    .foregroundStyle(color)
+                Text(name)
+                    .font(.subheadline.weight(.semibold))
+                Text(detail)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Circle()
+                    .fill(color)
+                    .frame(width: 7, height: 7)
+                Image(systemName: isExpanded.wrappedValue ? "chevron.down" : "chevron.right")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 12)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.primary.opacity(0.04))
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(Color.primary.opacity(0.04))
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(name), \(isExpanded.wrappedValue ? "expanded" : "collapsed")")
     }
 
     private var footer: some View {
@@ -232,5 +258,13 @@ struct SuitePanelContent: View {
             .foregroundStyle(.secondary)
         }
         .padding(12)
+    }
+}
+
+private extension Binding where Value == Bool {
+    /// @AppStorage stores "collapsed" (so fresh installs start expanded), but
+    /// the header reads more naturally in terms of "expanded".
+    var inverted: Binding<Bool> {
+        Binding(get: { !wrappedValue }, set: { wrappedValue = !$0 })
     }
 }
