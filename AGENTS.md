@@ -47,7 +47,9 @@
    `<Name>ProviderKit` library from `Sources/<Name>-Mock`).
 2. Add the path dependency and product to `Package.swift`.
 3. Extend `SuiteRuntime` (server + mode controller), `SuitePanelContent`
-   (section + module header), and the composite icon in
+   (section + module header + collapsed/pane-height keys — every boundary
+   between adjacent expanded modules gets a drag splitter; the last expanded
+   pane takes the remainder), and the composite icon in
    `SuiteStatusBarController`.
 4. Union the module's usage descriptions/entitlements into `Resources/`.
 

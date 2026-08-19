@@ -27,7 +27,17 @@ struct SuitePanelContent: View {
     // parked provider still signals its health while yielding panel space.
     @AppStorage("ImpossiBLECollapsed") private var bleCollapsed = false
     @AppStorage("CAMouflageCollapsed") private var camCollapsed = false
+    /// User-chosen height of the Bluetooth pane while both modules are
+    /// expanded; the camera pane takes the remainder. Adjusted by dragging
+    /// the splitter between the sections.
+    @AppStorage("ImpossiBLEPaneHeight") private var blePaneHeight = 380.0
+    @State private var dragBaseHeight: Double?
+    @State private var modulesHeight: CGFloat = 0
     private static let launchAgent = LaunchAtLogin(label: "de.vanille.simsalabim")
+    private static let blePaneMinHeight = 220.0
+    private static let camPaneMinHeight = 240.0
+
+    private var bothExpanded: Bool { !bleCollapsed && !camCollapsed }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -35,59 +45,65 @@ struct SuitePanelContent: View {
             clientRow
             Divider()
 
-            moduleHeader(
-                name: "ImpossiBLE",
-                detail: "Bluetooth LE",
-                color: ImpossiBLESection.statusColor(mode: bleController.mode, status: bleTransport.status),
-                isExpanded: $bleCollapsed.inverted
-            ) {
-                Image(nsImage: FontAwesome.brandImage(FontAwesome.bluetoothB, size: 14))
-            }
-            if !bleCollapsed {
-                // Flexible: the BLE device/activity lists absorb whatever height
-                // the panel has to spare; the camera section below is intrinsic.
-                ImpossiBLESection(
-                    store: store,
-                    server: bleServer,
-                    transport: bleTransport,
-                    activity: bleActivity,
-                    controller: bleController,
-                    showsClient: false,
-                    onDismiss: onDismiss,
-                    onOpenCapture: onOpenCapture,
-                    onOpenDevice: onOpenDevice
-                )
-                .frame(minHeight: 280, maxHeight: .infinity)
-                .layoutPriority(1)
+            GeometryReader { geo in
+                VStack(spacing: 0) {
+                    moduleHeader(
+                        name: "ImpossiBLE",
+                        detail: "Bluetooth LE",
+                        color: ImpossiBLESection.statusColor(mode: bleController.mode, status: bleTransport.status),
+                        isExpanded: $bleCollapsed.inverted
+                    ) {
+                        Image(nsImage: FontAwesome.brandImage(FontAwesome.bluetoothB, size: 14))
+                    }
+                    if !bleCollapsed {
+                        blePane
+                    }
+                    if bothExpanded {
+                        splitter
+                    } else {
+                        Divider()
+                    }
+
+                    moduleHeader(
+                        name: "CAMouflage",
+                        detail: "Camera",
+                        color: CAMouflageSection.statusColor(
+                            mode: camController.mode,
+                            status: camTransport.status,
+                            trafficActive: camServer.trafficActive
+                        ),
+                        isExpanded: $camCollapsed.inverted
+                    ) {
+                        Image(systemName: "camera.aperture")
+                            .font(.caption)
+                    }
+                    if !camCollapsed {
+                        // Scrollable so the camera content stays reachable no
+                        // matter how small its pane is dragged.
+                        ScrollView {
+                            CAMouflageSection(
+                                server: camServer,
+                                transport: camTransport,
+                                catalog: camCatalog,
+                                controller: camController,
+                                showsClient: false
+                            )
+                            .padding(12)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    }
+                    if bleCollapsed && camCollapsed {
+                        Spacer(minLength: 0)
+                    }
+                }
+                .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+                .onAppear { modulesHeight = geo.size.height }
+                .onChange(of: geo.size.height) { _, newValue in
+                    modulesHeight = newValue
+                }
             }
             Divider()
 
-            moduleHeader(
-                name: "CAMouflage",
-                detail: "Camera",
-                color: CAMouflageSection.statusColor(
-                    mode: camController.mode,
-                    status: camTransport.status,
-                    trafficActive: camServer.trafficActive
-                ),
-                isExpanded: $camCollapsed.inverted
-            ) {
-                Image(systemName: "camera.aperture")
-                    .font(.caption)
-            }
-            if !camCollapsed {
-                CAMouflageSection(
-                    server: camServer,
-                    transport: camTransport,
-                    catalog: camCatalog,
-                    controller: camController,
-                    showsClient: false
-                )
-                .padding(12)
-            }
-            Divider()
-
-            Spacer(minLength: 0)
             footer
         }
         .background(Color.clear)
@@ -182,6 +198,71 @@ struct SuitePanelContent: View {
         }
         .padding(.horizontal, 12)
         .padding(.bottom, 8)
+    }
+
+    // MARK: - Pane sizing
+
+    @ViewBuilder
+    private var blePane: some View {
+        let section = ImpossiBLESection(
+            store: store,
+            server: bleServer,
+            transport: bleTransport,
+            activity: bleActivity,
+            controller: bleController,
+            showsClient: false,
+            onDismiss: onDismiss,
+            onOpenCapture: onOpenCapture,
+            onOpenDevice: onOpenDevice
+        )
+        if bothExpanded {
+            section.frame(height: clampedBLEHeight)
+        } else {
+            section.frame(maxHeight: .infinity)
+        }
+    }
+
+    private var clampedBLEHeight: CGFloat {
+        min(max(blePaneHeight, Self.blePaneMinHeight), maxBLEHeight)
+    }
+
+    /// Keeps the camera pane usable: module headers and the splitter are
+    /// subtracted from what the modules region offers.
+    private var maxBLEHeight: Double {
+        max(Self.blePaneMinHeight, Double(modulesHeight) - Self.camPaneMinHeight - 2 * 28 - 9)
+    }
+
+    private var splitter: some View {
+        ZStack {
+            Divider()
+            Capsule()
+                .fill(Color.secondary.opacity(0.4))
+                .frame(width: 36, height: 4)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 9)
+        .contentShape(Rectangle())
+        .onHover { inside in
+            if inside {
+                NSCursor.resizeUpDown.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
+        .gesture(
+            DragGesture(minimumDistance: 1)
+                .onChanged { value in
+                    if dragBaseHeight == nil {
+                        dragBaseHeight = clampedBLEHeight
+                    }
+                    let proposed = (dragBaseHeight ?? blePaneHeight) + value.translation.height
+                    blePaneHeight = min(max(proposed, Self.blePaneMinHeight), maxBLEHeight)
+                }
+                .onEnded { _ in
+                    dragBaseHeight = nil
+                }
+        )
+        .help("Drag to divide the space between the modules")
     }
 
     private func clientText(_ client: SocketClientInfo) -> String {
