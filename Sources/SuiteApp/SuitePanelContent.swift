@@ -117,18 +117,25 @@ struct SuitePanelContent: View {
 
     private var header: some View {
         HStack {
-            HStack(alignment: .firstTextBaseline, spacing: 5) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("Simsalabim")
-                    .font(.headline)
+                    .font(.title2.weight(.semibold))
                 Text(appVersion)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Image(nsImage: NSApplication.shared.applicationIconImage)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 26, height: 26)
+            Button {
+                onDismiss?()
+            } label: {
+                Image(nsImage: NSApplication.shared.applicationIconImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 38, height: 38)
+            }
+            .buttonStyle(.plain)
+            .help("Close this panel")
+            .accessibilityLabel("Close this panel")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
