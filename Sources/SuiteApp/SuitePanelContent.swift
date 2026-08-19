@@ -79,8 +79,6 @@ struct SuitePanelContent: View {
 
     private var header: some View {
         HStack {
-            Image(systemName: "wand.and.stars")
-                .font(.headline)
             HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text("Simsalabim")
                     .font(.headline)
@@ -89,8 +87,13 @@ struct SuitePanelContent: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            Image(nsImage: NSApplication.shared.applicationIconImage)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 26, height: 26)
         }
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 
     private var appVersion: String {

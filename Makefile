@@ -12,6 +12,10 @@ SUITE_BUNDLE = Simsalabim.app
 SUITE_BIN = $(SUITE_BUNDLE)/Contents/MacOS/Simsalabim
 SUITE_BIN_NAME = Simsalabim
 FONT_RESOURCE = Modules/ImpossiBLE/Sources/ImpossiBLE-Mock/ProviderKit/Resources/fa-brands-400.ttf
+# Each module's own icon travels into the suite bundle so the sections can
+# show their product branding. Missing files are skipped, not errors.
+MODULE_ICONS = Modules/CAMouflage/Sources/CAMouflage-Mock/Resources/CAMouflage.icns \
+               Modules/ImpossiBLE/Sources/ImpossiBLE-Mock/Resources/ImpossiBLE.icns
 ICON_SOURCE = Assets/AppIcon.png
 INSTALLED_APP = $(INSTALL_DIR)/$(SUITE_BUNDLE)
 SUITE_DIST_ZIP = Simsalabim.zip
@@ -73,6 +77,7 @@ suite-debug:
 	swift build $(SWIFTPM_FLAGS)
 	@cp $$(swift build $(SWIFTPM_FLAGS) --show-bin-path)/$(SUITE_BIN_NAME) $(SUITE_BIN)
 	@cp $(FONT_RESOURCE) $(SUITE_BUNDLE)/Contents/Resources/
+	@for icon in $(MODULE_ICONS); do [ -f "$$icon" ] && cp "$$icon" $(SUITE_BUNDLE)/Contents/Resources/ || true; done
 	@$(MAKE) --no-print-directory icon
 	@codesign --force --sign - --entitlements $(SUITE_ENTITLEMENTS) $(SUITE_BUNDLE) >/dev/null
 	@xattr -cr $(SUITE_BUNDLE) 2>/dev/null || true
@@ -89,6 +94,7 @@ $(SUITE_BIN): $(SUITE_SRCS) $(SUITE_PLIST) $(SUITE_ENTITLEMENTS)
 	swift build $(SWIFTPM_FLAGS) -c release
 	cp $$(swift build $(SWIFTPM_FLAGS) -c release --show-bin-path)/$(SUITE_BIN_NAME) $(SUITE_BIN)
 	cp $(FONT_RESOURCE) $(SUITE_BUNDLE)/Contents/Resources/
+	@for icon in $(MODULE_ICONS); do [ -f "$$icon" ] && cp "$$icon" $(SUITE_BUNDLE)/Contents/Resources/ || true; done
 	@$(MAKE) --no-print-directory icon
 	@if [ -z "$(SUITE_SIGN_IDENTITY)" ]; then \
 		echo "WARNING: No codesigning identity matching '$(SUITE_CODESIGN_MATCH)' found in your keychain."; \
