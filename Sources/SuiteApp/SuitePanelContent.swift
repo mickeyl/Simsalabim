@@ -31,11 +31,11 @@ struct SuitePanelContent: View {
     /// expanded; the camera pane takes the remainder. Adjusted by dragging
     /// the splitter between the sections.
     @AppStorage("ImpossiBLEPaneHeight") private var blePaneHeight = 380.0
-    /// The live height while a drag is in flight. Kept out of @AppStorage on
-    /// purpose: writing UserDefaults per tick round-trips through its change
-    /// notification and the interleaved updates make the drag stutter — the
-    /// stored value is written once, on release.
-    @State private var liveBLEHeight: Double?
+    /// The proposed height while a drag is in flight. The panes deliberately
+    /// stay frozen until release: live-resizing the sections' NSScrollView-
+    /// backed lists at mouse-event rate is what made the drag stutter — only
+    /// the grip travels, and the layout snaps once, on release.
+    @State private var dragProposal: Double?
     @State private var dragBaseHeight: Double?
     @State private var modulesHeight: CGFloat = 0
     private static let launchAgent = LaunchAtLogin(label: "de.vanille.simsalabim")
@@ -84,7 +84,8 @@ struct SuitePanelContent: View {
                     }
                     if !camCollapsed {
                         // Scrollable so the camera content stays reachable no
-                        // matter how small its pane is dragged.
+                        // matter how small its pane is; with the frozen-pane
+                        // drag this resizes once per release, not per tick.
                         ScrollView {
                             CAMouflageSection(
                                 server: camServer,
@@ -228,7 +229,7 @@ struct SuitePanelContent: View {
     }
 
     private var clampedBLEHeight: CGFloat {
-        min(max(liveBLEHeight ?? blePaneHeight, Self.blePaneMinHeight), maxBLEHeight)
+        min(max(blePaneHeight, Self.blePaneMinHeight), maxBLEHeight)
     }
 
     /// Keeps the camera pane usable: module headers and the splitter are
@@ -241,8 +242,11 @@ struct SuitePanelContent: View {
         ZStack {
             Divider()
             Capsule()
-                .fill(Color.secondary.opacity(0.4))
+                .fill(dragProposal == nil ? Color.secondary.opacity(0.4) : Color.accentColor)
                 .frame(width: 36, height: 4)
+                // The grip travels with the cursor while the panes hold still;
+                // offset moves the layer without triggering any layout.
+                .offset(y: CGFloat((dragProposal ?? clampedBLEHeight) - clampedBLEHeight))
         }
         .frame(maxWidth: .infinity)
         .frame(height: 9)
@@ -261,13 +265,15 @@ struct SuitePanelContent: View {
                         dragBaseHeight = clampedBLEHeight
                     }
                     let proposed = (dragBaseHeight ?? blePaneHeight) + value.translation.height
-                    liveBLEHeight = min(max(proposed, Self.blePaneMinHeight), maxBLEHeight)
+                    dragProposal = (min(max(proposed, Self.blePaneMinHeight), maxBLEHeight)).rounded()
                 }
                 .onEnded { _ in
-                    if let liveBLEHeight {
-                        blePaneHeight = liveBLEHeight
+                    if let dragProposal {
+                        withAnimation(.easeOut(duration: 0.12)) {
+                            blePaneHeight = dragProposal
+                        }
                     }
-                    liveBLEHeight = nil
+                    dragProposal = nil
                     dragBaseHeight = nil
                 }
         )

@@ -24,7 +24,11 @@ library it needs and cannot tell which host app is serving.
 
 The panel stacks one section per provider, each with its own
 Off / Mock / Passthrough selection — BLE passthrough alongside camera mock is
-a perfectly normal combination. The menu bar icon shows the live state of
+a perfectly normal combination. Sections collapse to their header, and a
+splitter divides the space between expanded modules. The splitter deliberately
+uses *delayed resize*: while dragging, only the grip travels and the panes
+snap once on release — live-resizing the sections' scrollable lists at
+mouse-event rate stutters badly on macOS (details in AGENTS.md). The menu bar icon shows the live state of
 every active module: the wand is the brand anchor, and each module that is
 switched on contributes its own glyph in its product's state language
 (dot-badged when mocking, plain when forwarding, flashing on traffic).

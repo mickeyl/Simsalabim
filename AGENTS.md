@@ -41,6 +41,39 @@
   + camera usage descriptions and Hardened Runtime device entitlements). A
   new module must extend both.
 
+## Performance: why the splitter uses delayed resize
+
+The pane splitter freezes both panes while dragging — only the grip travels
+(a pure `.offset`, no layout) and the stored height is applied once, on
+release. This is deliberate and was arrived at the hard way; do not "fix" it
+back to live resizing without re-measuring:
+
+- **Live resize stuttered badly**, even on a 20-core machine, because the
+  entire path is serial on the main thread: every mouse event (~100/s, above
+  display refresh) synchronously triggered layout + commit of the whole
+  panel.
+- **It was not SwiftUI diffing.** `_logChanges()` instrumentation during a
+  real drag showed ~1200 body evaluations of the (cheap) panel content and
+  essentially zero re-evaluations of the provider sections. Pre-scaling the
+  brand icons and rasterizing their shadows (`drawingGroup`) did not help
+  either — those fixes remain because they are correct, but they were not
+  the bottleneck.
+- **The bottleneck is AppKit, not SwiftUI:** SwiftUI `ScrollView`s on macOS
+  are `NSScrollView`-backed, and resizing that machinery (tiling, scroller
+  layout, document-view invalidation) at mouse-event rate is far too
+  expensive. The killer in practice was ImpossiBLE's device list in Mock
+  mode; frame-by-frame video analysis showed near-full-panel repaints on
+  nearly every captured frame.
+- Related lesson, learned in the same session: never route per-tick gesture
+  values through `@AppStorage`/UserDefaults — the change-notification
+  round-trip interleaves with the gesture's own updates. Buffer in `@State`,
+  persist on `.onEnded`.
+
+If true live resizing is ever wanted, the path is to make the pane contents
+resize-cheap first — e.g. move the device lists to `List`
+(`NSTableView`-backed, optimized for live resize) — and re-measure before
+switching the splitter behavior.
+
 ## Adding a module
 
 1. `git submodule add <repo> Modules/<Name>` (the product must expose a
