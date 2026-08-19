@@ -8,7 +8,7 @@
   `SuitePanelContent` (stacked provider sections + shared footer).
 - `Modules/ImpossiBLE`, `Modules/CAMouflage` — git submodules of the product
   repos. The suite consumes their nested provider packages via **path
-  dependencies** (`Modules/<P>/Sources/<P>-Mock`), so a
+  dependencies** (`Modules/<P>/Sources/<P>-Mac`), so a
   `git clone --recursive` builds without any tag-bump dance. The submodule
   pins are the record of which product versions a suite release ships.
 - `PLAN.md` — the consolidation plan that produced this architecture
@@ -22,7 +22,7 @@
   SimBridgeKit. Nothing in this repo may be depended upon by a product or the
   kit; the products must remain individually installable without this repo.
 - **SPM package identity is the directory basename.** The nested provider
-  packages live in `Sources/ImpossiBLE-Mock` / `Sources/CAMouflage-Mock`
+  packages live in `Sources/ImpossiBLE-Mac` / `Sources/CAMouflage-Mac`
   precisely so both can coexist in one graph; a directory rename there breaks
   this repo's manifest.
 - **Per-module sockets, per-module modes.** There is no global mode: BLE
@@ -77,7 +77,7 @@ switching the splitter behavior.
 ## Adding a module
 
 1. `git submodule add <repo> Modules/<Name>` (the product must expose a
-   `<Name>ProviderKit` library from `Sources/<Name>-Mock`).
+   `<Name>ProviderKit` library from `Sources/<Name>-Mac`).
 2. Add the path dependency and product to `Package.swift`.
 NFCromancer was added 2026-08-19 as the reference third module — it needs the
 `com.apple.security.smartcard` entitlement (unioned into `Resources/`) and sits

@@ -5,18 +5,18 @@ NOTARY_PROFILE ?=
 SUITE_CODESIGN_MATCH ?= Developer ID Application
 SUITE_SIGN_IDENTITY := $(shell security find-identity -v -p codesigning | awk -F'"' '/$(SUITE_CODESIGN_MATCH)/ {print $$2; exit}')
 SUITE_CODESIGN_FLAGS ?= --options runtime --timestamp
-SUITE_SRCS = $(shell find Sources Modules/*/Sources/*-Mock \( -name '*.swift' -o -name '*.m' -o -name '*.h' \) -not -path '*/.build/*' 2>/dev/null)
+SUITE_SRCS = $(shell find Sources Modules/*/Sources/*-Mac \( -name '*.swift' -o -name '*.m' -o -name '*.h' \) -not -path '*/.build/*' 2>/dev/null)
 SUITE_PLIST = Resources/Info.plist
 SUITE_ENTITLEMENTS = Resources/entitlements.plist
 SUITE_BUNDLE = Simsalabim.app
 SUITE_BIN = $(SUITE_BUNDLE)/Contents/MacOS/Simsalabim
 SUITE_BIN_NAME = Simsalabim
-FONT_RESOURCE = Modules/ImpossiBLE/Sources/ImpossiBLE-Mock/ProviderKit/Resources/fa-brands-400.ttf
+FONT_RESOURCE = Modules/ImpossiBLE/Sources/ImpossiBLE-Mac/ProviderKit/Resources/fa-brands-400.ttf
 # Each module's own icon travels into the suite bundle so the sections can
 # show their product branding. Missing files are skipped, not errors.
-MODULE_ICONS = Modules/CAMouflage/Sources/CAMouflage-Mock/Resources/CAMouflage.icns \
-               Modules/ImpossiBLE/Sources/ImpossiBLE-Mock/Resources/ImpossiBLE.icns \
-               Modules/NFCromancer/Sources/NFCromancer-Mock/Resources/NFCromancer.icns
+MODULE_ICONS = Modules/CAMouflage/Sources/CAMouflage-Mac/Resources/CAMouflage.icns \
+               Modules/ImpossiBLE/Sources/ImpossiBLE-Mac/Resources/ImpossiBLE.icns \
+               Modules/NFCromancer/Sources/NFCromancer-Mac/Resources/NFCromancer.icns
 ICON_SOURCE = Assets/AppIcon.png
 INSTALLED_APP = $(INSTALL_DIR)/$(SUITE_BUNDLE)
 SUITE_DIST_ZIP = Simsalabim.zip

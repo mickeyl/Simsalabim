@@ -57,9 +57,9 @@ peripheral role.
 ├─────────────────────────────────────────────────────────────┤
 │ Product repos (unchanged sovereignty)                       │
 │   ImpossiBLE:  library (sim) + ImpossiBLEProviderKit (mac)  │
-│                + thin standalone ImpossiBLE-Mock.app        │
+│                + thin standalone ImpossiBLE-Mac.app        │
 │   CAMouflage:  library (sim) + CAMouflageProviderKit (mac)  │
-│                + thin standalone CAMouflage-Mock.app        │
+│                + thin standalone CAMouflage-Mac.app        │
 ├─────────────────────────────────────────────────────────────┤
 │ SimBridgeKit  (own repo, SPM package, macOS + iOS targets)  │
 │   host: UDS server, NDJSON envelope, takeover semantics,    │
@@ -93,10 +93,10 @@ Refactor per product (mechanical, no behavior change):
 Sources/MockApp/Package.swift        # gains a library product
   targets:
     <Name>ProviderKit  (library)     # Server/, Models/, Views/ panel sections
-    <Name>-Mock        (executable)  # MockApp.swift + StatusBarController glue
+    <Name>-Mac        (executable)  # MacApp.swift + StatusBarController glue
   products:
     .library(name: "<Name>ProviderKit", targets: ["<Name>ProviderKit"])
-    .executable(name: "<Name>-Mock", ...)
+    .executable(name: "<Name>-Mac", ...)
 ```
 
 What goes where:
@@ -180,7 +180,7 @@ keep working against the new provider.
 **Validate:**
 
 ```bash
-make mock-clean mock && open ImpossiBLE-Mock.app
+make mac-clean mac && open ImpossiBLE-Mac.app
 # SampleApp in the simulator: Mock mode serves fixtures; Passthrough scans,
 # connects, reads/writes/subscribes, opens L2CAP against real hardware.
 # Capture: scan + deep inspection works without any helper process appearing
@@ -289,7 +289,7 @@ level up). Implemented once in SimBridgeKit's server:
 
 - Before binding: `connect()` to the existing socket path. If a listener
   answers, **refuse to start that module's provider** and surface it in the
-  panel/log: "ImpossiBLE-Mock is already serving — quit it or use its
+  panel/log: "ImpossiBLE-Mac is already serving — quit it or use its
   section here." Only an unanswered (stale) socket file is unlinked.
 - The suite app degrades per module: if only the BLE socket is taken, the
   camera section still runs.
