@@ -31,6 +31,11 @@ struct SuitePanelContent: View {
     /// expanded; the camera pane takes the remainder. Adjusted by dragging
     /// the splitter between the sections.
     @AppStorage("ImpossiBLEPaneHeight") private var blePaneHeight = 380.0
+    /// The live height while a drag is in flight. Kept out of @AppStorage on
+    /// purpose: writing UserDefaults per tick round-trips through its change
+    /// notification and the interleaved updates make the drag stutter — the
+    /// stored value is written once, on release.
+    @State private var liveBLEHeight: Double?
     @State private var dragBaseHeight: Double?
     @State private var modulesHeight: CGFloat = 0
     private static let launchAgent = LaunchAtLogin(label: "de.vanille.simsalabim")
@@ -223,7 +228,7 @@ struct SuitePanelContent: View {
     }
 
     private var clampedBLEHeight: CGFloat {
-        min(max(blePaneHeight, Self.blePaneMinHeight), maxBLEHeight)
+        min(max(liveBLEHeight ?? blePaneHeight, Self.blePaneMinHeight), maxBLEHeight)
     }
 
     /// Keeps the camera pane usable: module headers and the splitter are
@@ -256,9 +261,13 @@ struct SuitePanelContent: View {
                         dragBaseHeight = clampedBLEHeight
                     }
                     let proposed = (dragBaseHeight ?? blePaneHeight) + value.translation.height
-                    blePaneHeight = min(max(proposed, Self.blePaneMinHeight), maxBLEHeight)
+                    liveBLEHeight = min(max(proposed, Self.blePaneMinHeight), maxBLEHeight)
                 }
                 .onEnded { _ in
+                    if let liveBLEHeight {
+                        blePaneHeight = liveBLEHeight
+                    }
+                    liveBLEHeight = nil
                     dragBaseHeight = nil
                 }
         )
