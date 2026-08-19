@@ -79,6 +79,11 @@ switching the splitter behavior.
 1. `git submodule add <repo> Modules/<Name>` (the product must expose a
    `<Name>ProviderKit` library from `Sources/<Name>-Mock`).
 2. Add the path dependency and product to `Package.swift`.
+NFCromancer was added 2026-08-19 as the reference third module — it needs the
+`com.apple.security.smartcard` entitlement (unioned into `Resources/`) and sits
+as the last, intrinsic-height pane below the BLE↔CAM splitter. The suite's
+client row now aggregates all three provider sockets generically.
+
 3. Extend `SuiteRuntime` (server + mode controller), `SuitePanelContent`
    (section + module header + collapsed/pane-height keys — every boundary
    between adjacent expanded modules gets a drag splitter; the last expanded

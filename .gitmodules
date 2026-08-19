@@ -4,3 +4,6 @@
 [submodule "Modules/CAMouflage"]
 	path = Modules/CAMouflage
 	url = https://github.com/mickeyl/CAMouflage.git
+[submodule "Modules/NFCromancer"]
+	path = Modules/NFCromancer
+	url = https://github.com/mickeyl/NFCromancer.git

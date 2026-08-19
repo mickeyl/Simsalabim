@@ -14,6 +14,7 @@ let package = Package(
     dependencies: [
         .package(path: "Modules/ImpossiBLE/Sources/ImpossiBLE-Mock"),
         .package(path: "Modules/CAMouflage/Sources/CAMouflage-Mock"),
+        .package(path: "Modules/NFCromancer/Sources/NFCromancer-Mock"),
         .package(url: "https://github.com/mickeyl/SimBridgeKit.git", from: "0.1.1"),
     ],
     targets: [
@@ -22,6 +23,7 @@ let package = Package(
             dependencies: [
                 .product(name: "ImpossiBLEProviderKit", package: "ImpossiBLE-Mock"),
                 .product(name: "CAMouflageProviderKit", package: "CAMouflage-Mock"),
+                .product(name: "NFCromancerProviderKit", package: "NFCromancer-Mock"),
                 .product(name: "SimBridgeServer", package: "SimBridgeKit"),
                 .product(name: "SimBridgeShell", package: "SimBridgeKit"),
             ],

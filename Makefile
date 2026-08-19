@@ -15,7 +15,8 @@ FONT_RESOURCE = Modules/ImpossiBLE/Sources/ImpossiBLE-Mock/ProviderKit/Resources
 # Each module's own icon travels into the suite bundle so the sections can
 # show their product branding. Missing files are skipped, not errors.
 MODULE_ICONS = Modules/CAMouflage/Sources/CAMouflage-Mock/Resources/CAMouflage.icns \
-               Modules/ImpossiBLE/Sources/ImpossiBLE-Mock/Resources/ImpossiBLE.icns
+               Modules/ImpossiBLE/Sources/ImpossiBLE-Mock/Resources/ImpossiBLE.icns \
+               Modules/NFCromancer/Sources/NFCromancer-Mock/Resources/NFCromancer.icns
 ICON_SOURCE = Assets/AppIcon.png
 INSTALLED_APP = $(INSTALL_DIR)/$(SUITE_BUNDLE)
 SUITE_DIST_ZIP = Simsalabim.zip

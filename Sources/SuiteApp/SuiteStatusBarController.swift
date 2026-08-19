@@ -3,6 +3,7 @@ import Combine
 import SwiftUI
 import ImpossiBLEProviderKit
 import CAMouflageProviderKit
+import NFCromancerProviderKit
 import SimBridgeServer
 import SimBridgeShell
 
@@ -18,6 +19,8 @@ final class SuiteStatusBarController: NSObject, NSWindowDelegate {
     private let camServer: MockCameraServer
     private let camCatalog: CameraCatalog
     private let camController: ModeTransitionController<ProviderMode>
+    private let nfcServer: TagServer
+    private let nfcController: ModeTransitionController<ProviderMode>
     private var panel: StatusItemPanelController!
     private var captureWindow: NSWindow?
     private var deviceWindows: [UUID: NSWindow] = [:]
@@ -38,7 +41,9 @@ final class SuiteStatusBarController: NSObject, NSWindowDelegate {
         bleController: ModeTransitionController<ProviderMode>,
         camServer: MockCameraServer,
         camCatalog: CameraCatalog,
-        camController: ModeTransitionController<ProviderMode>
+        camController: ModeTransitionController<ProviderMode>,
+        nfcServer: TagServer,
+        nfcController: ModeTransitionController<ProviderMode>
     ) {
         self.store = store
         self.bleServer = bleServer
@@ -46,6 +51,8 @@ final class SuiteStatusBarController: NSObject, NSWindowDelegate {
         self.camServer = camServer
         self.camCatalog = camCatalog
         self.camController = camController
+        self.nfcServer = nfcServer
+        self.nfcController = nfcController
         super.init()
         panel = StatusItemPanelController(
             title: "Simsalabim",
@@ -63,6 +70,9 @@ final class SuiteStatusBarController: NSObject, NSWindowDelegate {
                 camTransport: self.camServer.transport,
                 camCatalog: self.camCatalog,
                 camController: self.camController,
+                nfcServer: self.nfcServer,
+                nfcTransport: self.nfcServer.transport,
+                nfcController: self.nfcController,
                 onDismiss: { [weak self] in self?.panel.hidePanel() },
                 onOpenCapture: { [weak self] in self?.openCaptureWindow() },
                 onOpenDevice: { [weak self] deviceId in self?.openDeviceEditor(deviceId) }
@@ -93,6 +103,9 @@ final class SuiteStatusBarController: NSObject, NSWindowDelegate {
             camServer.transport.$status.map { _ in }.eraseToAnyPublisher(),
             camServer.$trafficActive.map { _ in }.eraseToAnyPublisher(),
             camController.$mode.map { _ in }.eraseToAnyPublisher(),
+            nfcServer.transport.$status.map { _ in }.eraseToAnyPublisher(),
+            nfcServer.transport.$trafficActive.map { _ in }.eraseToAnyPublisher(),
+            nfcController.$mode.map { _ in }.eraseToAnyPublisher(),
         ]
         for trigger in triggers {
             trigger
@@ -127,6 +140,14 @@ final class SuiteStatusBarController: NSObject, NSWindowDelegate {
             if let video = NSImage(systemSymbolName: name, accessibilityDescription: "CAMouflage")?
                 .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 13, weight: .regular)) {
                 segments.append(video)
+            }
+        }
+
+        if nfcController.mode != .off {
+            let name = nfcServer.transport.trafficActive ? "wave.3.right.circle.fill" : "wave.3.right"
+            if let nfc = NSImage(systemSymbolName: name, accessibilityDescription: "NFCromancer")?
+                .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 13, weight: .regular)) {
+                segments.append(nfc)
             }
         }
 

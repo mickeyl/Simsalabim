@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import ImpossiBLEProviderKit
 import CAMouflageProviderKit
+import NFCromancerProviderKit
 import SimBridgeShell
 
 /// One process, all providers: each module keeps its own socket, server, and
@@ -14,6 +15,8 @@ final class SuiteRuntime {
     let camServer: MockCameraServer
     let camCatalog: CameraCatalog
     let camController: ModeTransitionController<ProviderMode>
+    let nfcServer: TagServer
+    let nfcController: ModeTransitionController<ProviderMode>
     let statusBar: SuiteStatusBarController
 
     static var shared: SuiteRuntime?
@@ -62,13 +65,35 @@ final class SuiteRuntime {
             }
         }
 
+        let nfcServer = TagServer()
+        self.nfcServer = nfcServer
+        nfcController = ModeTransitionController(
+            initial: ProviderMode.persisted(key: "NFCromancerMode"),
+            persist: { $0.persist(key: "NFCromancerMode") }
+        ) { mode, completion in
+            switch mode {
+                case .off:
+                    nfcServer.stop(completion: completion)
+                case .mock:
+                    nfcServer.stop {
+                        nfcServer.start(mode: .mock, completion: completion)
+                    }
+                case .passthrough:
+                    nfcServer.stop {
+                        nfcServer.start(mode: .passthrough, completion: completion)
+                    }
+            }
+        }
+
         statusBar = SuiteStatusBarController(
             store: store,
             bleServer: bleServer,
             bleController: bleController,
             camServer: camServer,
             camCatalog: camCatalog,
-            camController: camController
+            camController: camController,
+            nfcServer: nfcServer,
+            nfcController: nfcController
         )
     }
 }
@@ -84,7 +109,9 @@ final class SuiteAppDelegate: NSObject, NSApplicationDelegate {
 
         runtime.bleServer.stop {
             runtime.camServer.stop {
-                sender.reply(toApplicationShouldTerminate: true)
+                runtime.nfcServer.stop {
+                    sender.reply(toApplicationShouldTerminate: true)
+                }
             }
         }
         return .terminateLater

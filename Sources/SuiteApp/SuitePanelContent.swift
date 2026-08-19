@@ -1,6 +1,7 @@
 import SwiftUI
 import ImpossiBLEProviderKit
 import CAMouflageProviderKit
+import NFCromancerProviderKit
 import SimBridgeServer
 import SimBridgeShell
 
@@ -16,6 +17,9 @@ struct SuitePanelContent: View {
     @ObservedObject var camTransport: ProtocolServer
     @ObservedObject var camCatalog: CameraCatalog
     @ObservedObject var camController: ModeTransitionController<ProviderMode>
+    @ObservedObject var nfcServer: TagServer
+    @ObservedObject var nfcTransport: ProtocolServer
+    @ObservedObject var nfcController: ModeTransitionController<ProviderMode>
     var onDismiss: (() -> Void)?
     var onOpenCapture: (() -> Void)?
     var onOpenDevice: ((UUID) -> Void)?
@@ -27,6 +31,7 @@ struct SuitePanelContent: View {
     // parked provider still signals its health while yielding panel space.
     @AppStorage("ImpossiBLECollapsed") private var bleCollapsed = false
     @AppStorage("CAMouflageCollapsed") private var camCollapsed = false
+    @AppStorage("NFCromancerCollapsed") private var nfcCollapsed = false
     /// User-chosen height of the Bluetooth pane while both modules are
     /// expanded; the camera pane takes the remainder. Adjusted by dragging
     /// the splitter between the sections.
@@ -98,7 +103,29 @@ struct SuitePanelContent: View {
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     }
-                    if bleCollapsed && camCollapsed {
+                    Divider()
+
+                    moduleHeader(
+                        name: "NFCromancer",
+                        detail: "NFC",
+                        color: NFCromancerSection.statusColor(mode: nfcController.mode, status: nfcTransport.status),
+                        isExpanded: $nfcCollapsed.inverted
+                    ) {
+                        Image(systemName: "wave.3.right")
+                            .font(.caption)
+                    }
+                    if !nfcCollapsed {
+                        // The last pane is intrinsic: a fixed, scrollable height
+                        // so the camera pane above keeps the flexible middle.
+                        NFCromancerSection(
+                            server: nfcServer,
+                            transport: nfcTransport,
+                            controller: nfcController,
+                            showsClient: false
+                        )
+                        .frame(height: 280)
+                    }
+                    if bleCollapsed && camCollapsed && nfcCollapsed {
                         Spacer(minLength: 0)
                     }
                 }
@@ -152,30 +179,30 @@ struct SuitePanelContent: View {
     /// so one line covers it — and only diverging clients fan out per module.
     @ViewBuilder
     private var clientRow: some View {
-        let ble = bleTransport.connectedClient
-        let cam = camTransport.connectedClient
+        let connected = allClients.filter { $0.client != nil }
+        let uniquePids = Set(connected.compactMap { $0.client?.pid })
 
         HStack(spacing: 6) {
             Image(systemName: "iphone")
                 .font(.caption)
-                .foregroundStyle(ble == nil && cam == nil ? Color.secondary : .green)
+                .foregroundStyle(connected.isEmpty ? Color.secondary : .green)
 
             VStack(alignment: .leading, spacing: 1) {
-                if ble == nil && cam == nil {
+                if connected.isEmpty {
                     Text("No simulator client connected")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                } else if let ble, let cam, ble.pid == cam.pid {
-                    Text(clientText(ble))
+                } else if uniquePids.count == 1, let client = connected.first?.client {
+                    // The usual case: the same app on every provider socket.
+                    Text(clientText(client))
                         .font(.caption)
                 } else {
-                    if let ble {
-                        Text("Bluetooth: \(clientText(ble))")
-                            .font(.caption)
-                    }
-                    if let cam {
-                        Text("Camera: \(clientText(cam))")
-                            .font(.caption)
+                    // Different apps per module — fan out.
+                    ForEach(connected, id: \.label) { entry in
+                        if let client = entry.client {
+                            Text("\(entry.label): \(clientText(client))")
+                                .font(.caption)
+                        }
                     }
                 }
             }
@@ -183,7 +210,7 @@ struct SuitePanelContent: View {
 
             Spacer()
 
-            if ble != nil || cam != nil {
+            if !connected.isEmpty {
                 Button {
                     confirmTermination = true
                 } label: {
@@ -200,8 +227,7 @@ struct SuitePanelContent: View {
                     titleVisibility: .visible
                 ) {
                     Button("Terminate", role: .destructive) {
-                        if ble != nil { bleTransport.terminateConnectedClient() }
-                        if cam != nil, cam?.pid != ble?.pid { camTransport.terminateConnectedClient() }
+                        for entry in connected { entry.terminate() }
                     }
                     Button("Cancel", role: .cancel) { }
                 } message: {
@@ -211,6 +237,20 @@ struct SuitePanelContent: View {
         }
         .padding(.horizontal, 12)
         .padding(.bottom, 8)
+    }
+
+    private struct ClientEntry {
+        let label: String
+        let client: SocketClientInfo?
+        let terminate: () -> Void
+    }
+
+    private var allClients: [ClientEntry] {
+        [
+            ClientEntry(label: "Bluetooth", client: bleTransport.connectedClient) { bleTransport.terminateConnectedClient() },
+            ClientEntry(label: "Camera", client: camTransport.connectedClient) { camTransport.terminateConnectedClient() },
+            ClientEntry(label: "NFC", client: nfcTransport.connectedClient) { nfcTransport.terminateConnectedClient() },
+        ]
     }
 
     // MARK: - Pane sizing
