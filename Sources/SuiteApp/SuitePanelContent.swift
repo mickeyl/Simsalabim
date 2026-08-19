@@ -22,11 +22,13 @@ struct SuitePanelContent: View {
 
     @State private var dismissOnDeactivate = ShellPreferences.dismissControlWindowOnDeactivate
     @State private var launchAtLogin = SuitePanelContent.launchAgent.isEnabled
+    @State private var confirmTermination = false
     private static let launchAgent = LaunchAtLogin(label: "de.vanille.simsalabim")
 
     var body: some View {
         VStack(spacing: 0) {
             header
+            clientRow
             Divider()
 
             moduleHeader(
@@ -44,6 +46,7 @@ struct SuitePanelContent: View {
                 transport: bleTransport,
                 activity: bleActivity,
                 controller: bleController,
+                showsClient: false,
                 onDismiss: onDismiss,
                 onOpenCapture: onOpenCapture,
                 onOpenDevice: onOpenDevice
@@ -67,7 +70,8 @@ struct SuitePanelContent: View {
                 server: camServer,
                 transport: camTransport,
                 catalog: camCatalog,
-                controller: camController
+                controller: camController,
+                showsClient: false
             )
             .padding(12)
             Divider()
@@ -98,6 +102,79 @@ struct SuitePanelContent: View {
 
     private var appVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    }
+
+    // MARK: - Connected client (suite level)
+
+    /// The connected simulator client lives above the modules: each provider
+    /// socket has its own client slot, but it is usually the same app on both,
+    /// so one line covers it — and only diverging clients fan out per module.
+    @ViewBuilder
+    private var clientRow: some View {
+        let ble = bleTransport.connectedClient
+        let cam = camTransport.connectedClient
+
+        HStack(spacing: 6) {
+            Image(systemName: "iphone")
+                .font(.caption)
+                .foregroundStyle(ble == nil && cam == nil ? Color.secondary : .green)
+
+            VStack(alignment: .leading, spacing: 1) {
+                if ble == nil && cam == nil {
+                    Text("No simulator client connected")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if let ble, let cam, ble.pid == cam.pid {
+                    Text(clientText(ble))
+                        .font(.caption)
+                } else {
+                    if let ble {
+                        Text("Bluetooth: \(clientText(ble))")
+                            .font(.caption)
+                    }
+                    if let cam {
+                        Text("Camera: \(clientText(cam))")
+                            .font(.caption)
+                    }
+                }
+            }
+            .lineLimit(1)
+
+            Spacer()
+
+            if ble != nil || cam != nil {
+                Button {
+                    confirmTermination = true
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Terminate connected client")
+                .accessibilityLabel("Terminate connected client")
+                .confirmationDialog(
+                    "Terminate the connected simulator client?",
+                    isPresented: $confirmTermination,
+                    titleVisibility: .visible
+                ) {
+                    Button("Terminate", role: .destructive) {
+                        if ble != nil { bleTransport.terminateConnectedClient() }
+                        if cam != nil, cam?.pid != ble?.pid { camTransport.terminateConnectedClient() }
+                    }
+                    Button("Cancel", role: .cancel) { }
+                } message: {
+                    Text("The simulator app will be disconnected from all providers.")
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
+    }
+
+    private func clientText(_ client: SocketClientInfo) -> String {
+        guard let version = client.libraryVersion else { return client.displayText }
+        return "\(client.displayText) · lib \(version)"
     }
 
     private func moduleHeader<Icon: View>(
