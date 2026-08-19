@@ -36,6 +36,8 @@ struct SuitePanelContent: View {
             ) {
                 Image(nsImage: FontAwesome.brandImage(FontAwesome.bluetoothB, size: 14))
             }
+            // Flexible: the BLE device/activity lists absorb whatever height
+            // the panel has to spare; the camera section below is intrinsic.
             ImpossiBLESection(
                 store: store,
                 server: bleServer,
@@ -46,7 +48,7 @@ struct SuitePanelContent: View {
                 onOpenCapture: onOpenCapture,
                 onOpenDevice: onOpenDevice
             )
-            .frame(height: 300)
+            .frame(minHeight: 280, maxHeight: .infinity)
             Divider()
 
             moduleHeader(

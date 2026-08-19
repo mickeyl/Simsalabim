@@ -22,7 +22,15 @@ final class SuiteStatusBarController: NSObject, NSWindowDelegate {
     private var captureWindow: NSWindow?
     private var deviceWindows: [UUID: NSWindow] = [:]
     private var cancellables: Set<AnyCancellable> = []
-    private static let contentSize = NSSize(width: 400, height: 860)
+
+    /// As tall as the screen comfortably allows: two stacked provider
+    /// sections want vertical room, but the panel must never outgrow the
+    /// menu bar screen's visible frame.
+    private static var contentSize: NSSize {
+        let visibleHeight = NSScreen.main?.visibleFrame.height ?? 900
+        let height = min(1080, max(700, visibleHeight - 60))
+        return NSSize(width: 440, height: height)
+    }
 
     init(
         store: MockStore,
