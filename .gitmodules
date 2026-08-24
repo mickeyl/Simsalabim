@@ -7,3 +7,6 @@
 [submodule "Modules/NFCromancer"]
 	path = Modules/NFCromancer
 	url = https://github.com/mickeyl/NFCromancer.git
+[submodule "Modules/Simulacrum"]
+	path = Modules/Simulacrum
+	url = https://github.com/mickeyl/Simulacrum.git
