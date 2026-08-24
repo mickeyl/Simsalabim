@@ -18,6 +18,10 @@ menu bar item, one panel, every provider:
 - **[Simulacrum](https://github.com/mickeyl/Simulacrum)** — seeds real
   Contacts/Calendar/Reminders/Photos data into a booted simulator, one click
 
+<p align="center">
+  <img src="Assets/screenshot-panel.png" alt="The Simsalabim panel" width="440">
+</p>
+
 Each product remains an individually installable, self-contained tool with its
 own standalone menu bar app; Simsalabim embeds the very same provider
 libraries (`ImpossiBLEProviderKit`, `CAMouflageProviderKit`,
