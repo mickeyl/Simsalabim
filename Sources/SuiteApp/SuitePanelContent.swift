@@ -31,28 +31,29 @@ struct SuitePanelContent: View {
     @State private var dismissOnDeactivate = ShellPreferences.dismissControlWindowOnDeactivate
     @State private var launchAtLogin = SuitePanelContent.launchAgent.isEnabled
     @State private var confirmTermination = false
-    // Collapsed modules keep their header (with the status dot) visible, so a
-    // parked provider still signals its health while yielding panel space.
-    @AppStorage("ImpossiBLECollapsed") private var bleCollapsed = false
-    @AppStorage("CAMouflageCollapsed") private var camCollapsed = false
-    @AppStorage("NFCromancerCollapsed") private var nfcCollapsed = false
-    @AppStorage("SimulacrumCollapsed") private var seedCollapsed = false
-    /// User-chosen height of the Bluetooth pane while both modules are
-    /// expanded; the camera pane takes the remainder. Adjusted by dragging
-    /// the splitter between the sections.
-    @AppStorage("ImpossiBLEPaneHeight") private var blePaneHeight = 380.0
-    /// The proposed height while a drag is in flight. The panes deliberately
-    /// stay frozen until release: live-resizing the sections' NSScrollView-
-    /// backed lists at mouse-event rate is what made the drag stutter — only
-    /// the grip travels, and the layout snaps once, on release.
-    @State private var dragProposal: Double?
-    @State private var dragBaseHeight: Double?
-    @State private var modulesHeight: CGFloat = 0
+    /// Exactly one module is expanded at a time (or none): the accordion
+    /// gives the open module the full pane — the same height its standalone
+    /// app would offer — while every header stays visible, so a parked
+    /// provider still signals its health via its status dot. This replaced
+    /// the earlier collapse-flags-plus-splitter layout; dividing one panel
+    /// between N heterogeneous panes never carried its weight (history in
+    /// AGENTS.md).
+    @AppStorage("ExpandedModule") private var expandedModuleRaw = Module.impossible.rawValue
     private static let launchAgent = LaunchAtLogin(label: "de.vanille.simsalabim")
-    private static let blePaneMinHeight = 220.0
-    private static let camPaneMinHeight = 240.0
 
-    private var bothExpanded: Bool { !bleCollapsed && !camCollapsed }
+    /// The suite's modules, in panel order. Raw values double as the
+    /// persisted `ExpandedModule` value and the header title.
+    enum Module: String {
+        case impossible = "ImpossiBLE"
+        case camouflage = "CAMouflage"
+        case nfcromancer = "NFCromancer"
+        case simulacrum = "Simulacrum"
+    }
+
+    private var expandedModule: Module? {
+        get { Module(rawValue: expandedModuleRaw) }
+        nonmutating set { expandedModuleRaw = newValue?.rawValue ?? "" }
+    }
 
     /// Simulacrum has no Off/Mock/Passthrough mode to report — the dot
     /// reflects the current run instead: quiet until a seed is in flight,
@@ -77,109 +78,95 @@ struct SuitePanelContent: View {
             clientRow
             Divider()
 
-            GeometryReader { geo in
-                VStack(spacing: 0) {
-                    moduleHeader(
-                        name: "ImpossiBLE",
-                        detail: "Bluetooth LE",
-                        color: ImpossiBLESection.statusColor(mode: bleController.mode, status: bleTransport.status),
-                        isExpanded: $bleCollapsed.inverted
-                    ) {
-                        Image(nsImage: FontAwesome.brandImage(FontAwesome.bluetoothB, size: 14))
-                    }
-                    if !bleCollapsed {
-                        blePane
-                    }
-                    if bothExpanded {
-                        splitter
-                    } else {
-                        Divider()
-                    }
+            moduleHeader(
+                .impossible,
+                detail: "Bluetooth LE",
+                color: ImpossiBLESection.statusColor(mode: bleController.mode, status: bleTransport.status)
+            ) {
+                Image(nsImage: FontAwesome.brandImage(FontAwesome.bluetoothB, size: 14))
+            }
+            if expandedModule == .impossible {
+                ImpossiBLESection(
+                    store: store,
+                    server: bleServer,
+                    transport: bleTransport,
+                    activity: bleActivity,
+                    controller: bleController,
+                    showsClient: false,
+                    onDismiss: onDismiss,
+                    onOpenCapture: onOpenCapture,
+                    onOpenDevice: onOpenDevice
+                )
+                .frame(maxHeight: .infinity)
+            }
+            Divider()
 
-                    moduleHeader(
-                        name: "CAMouflage",
-                        detail: "Camera",
-                        color: CAMouflageSection.statusColor(
-                            mode: camController.mode,
-                            status: camTransport.status,
-                            trafficActive: camServer.trafficActive
-                        ),
-                        isExpanded: $camCollapsed.inverted
-                    ) {
-                        Image(systemName: "camera.aperture")
-                            .font(.caption)
-                    }
-                    if !camCollapsed {
-                        // Scrollable so the camera content stays reachable no
-                        // matter how small its pane is; with the frozen-pane
-                        // drag this resizes once per release, not per tick.
-                        ScrollView {
-                            CAMouflageSection(
-                                server: camServer,
-                                transport: camTransport,
-                                catalog: camCatalog,
-                                controller: camController,
-                                showsClient: false
-                            )
-                            .padding(12)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    }
-                    Divider()
-
-                    moduleHeader(
-                        name: "NFCromancer",
-                        detail: "NFC",
-                        color: NFCromancerSection.statusColor(mode: nfcController.mode, status: nfcTransport.status),
-                        isExpanded: $nfcCollapsed.inverted
-                    ) {
-                        Image(systemName: "wave.3.right")
-                            .font(.caption)
-                    }
-                    if !nfcCollapsed {
-                        // The last pane is intrinsic: a fixed, scrollable height
-                        // so the camera pane above keeps the flexible middle.
-                        NFCromancerSection(
-                            server: nfcServer,
-                            transport: nfcTransport,
-                            controller: nfcController,
-                            showsClient: false
-                        )
-                        .frame(height: 280)
-                    }
-                    Divider()
-
-                    moduleHeader(
-                        name: "Simulacrum",
-                        detail: "Seed Data",
-                        color: seedStatusColor,
-                        isExpanded: $seedCollapsed.inverted
-                    ) {
-                        Image(systemName: "tray.and.arrow.down")
-                            .font(.caption)
-                    }
-                    if !seedCollapsed {
-                        // Same intrinsic-height tail-pane treatment as
-                        // NFCromancer: this module's content (device picker,
-                        // short fixture list, Seed button) doesn't need
-                        // flexible scrolling space, so it doesn't get its own
-                        // splitter.
-                        SimulacrumSection(
-                            transport: seedTransport,
-                            fixtureStore: fixtureStore,
-                            runner: seedRunner
-                        )
-                        .frame(height: 280)
-                    }
-                    if bleCollapsed && camCollapsed && nfcCollapsed && seedCollapsed {
-                        Spacer(minLength: 0)
-                    }
+            moduleHeader(
+                .camouflage,
+                detail: "Camera",
+                color: CAMouflageSection.statusColor(
+                    mode: camController.mode,
+                    status: camTransport.status,
+                    trafficActive: camServer.trafficActive
+                )
+            ) {
+                Image(systemName: "camera.aperture")
+                    .font(.caption)
+            }
+            if expandedModule == .camouflage {
+                // Scrollable because the camera content can outgrow even a
+                // full pane on small screens.
+                ScrollView {
+                    CAMouflageSection(
+                        server: camServer,
+                        transport: camTransport,
+                        catalog: camCatalog,
+                        controller: camController,
+                        showsClient: false
+                    )
+                    .padding(12)
                 }
-                .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
-                .onAppear { modulesHeight = geo.size.height }
-                .onChange(of: geo.size.height) { _, newValue in
-                    modulesHeight = newValue
-                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
+            Divider()
+
+            moduleHeader(
+                .nfcromancer,
+                detail: "NFC",
+                color: NFCromancerSection.statusColor(mode: nfcController.mode, status: nfcTransport.status)
+            ) {
+                Image(systemName: "wave.3.right")
+                    .font(.caption)
+            }
+            if expandedModule == .nfcromancer {
+                NFCromancerSection(
+                    server: nfcServer,
+                    transport: nfcTransport,
+                    controller: nfcController,
+                    showsClient: false
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            Divider()
+
+            moduleHeader(
+                .simulacrum,
+                detail: "Seed Data",
+                color: seedStatusColor
+            ) {
+                Image(systemName: "tray.and.arrow.down")
+                    .font(.caption)
+            }
+            if expandedModule == .simulacrum {
+                SimulacrumSection(
+                    transport: seedTransport,
+                    fixtureStore: fixtureStore,
+                    runner: seedRunner
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            if expandedModule == nil {
+                Spacer(minLength: 0)
             }
             Divider()
 
@@ -299,102 +286,28 @@ struct SuitePanelContent: View {
         ]
     }
 
-    // MARK: - Pane sizing
-
-    @ViewBuilder
-    private var blePane: some View {
-        let section = ImpossiBLESection(
-            store: store,
-            server: bleServer,
-            transport: bleTransport,
-            activity: bleActivity,
-            controller: bleController,
-            showsClient: false,
-            onDismiss: onDismiss,
-            onOpenCapture: onOpenCapture,
-            onOpenDevice: onOpenDevice
-        )
-        if bothExpanded {
-            section.frame(height: clampedBLEHeight)
-        } else {
-            section.frame(maxHeight: .infinity)
-        }
-    }
-
-    private var clampedBLEHeight: CGFloat {
-        min(max(blePaneHeight, Self.blePaneMinHeight), maxBLEHeight)
-    }
-
-    /// Keeps the camera pane usable: module headers and the splitter are
-    /// subtracted from what the modules region offers.
-    private var maxBLEHeight: Double {
-        max(Self.blePaneMinHeight, Double(modulesHeight) - Self.camPaneMinHeight - 2 * 28 - 9)
-    }
-
-    private var splitter: some View {
-        ZStack {
-            Divider()
-            Capsule()
-                .fill(dragProposal == nil ? Color.secondary.opacity(0.4) : Color.accentColor)
-                .frame(width: 36, height: 4)
-                // The grip travels with the cursor while the panes hold still;
-                // offset moves the layer without triggering any layout.
-                .offset(y: CGFloat((dragProposal ?? clampedBLEHeight) - clampedBLEHeight))
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 9)
-        .contentShape(Rectangle())
-        .onHover { inside in
-            if inside {
-                NSCursor.resizeUpDown.push()
-            } else {
-                NSCursor.pop()
-            }
-        }
-        .gesture(
-            DragGesture(minimumDistance: 1)
-                .onChanged { value in
-                    if dragBaseHeight == nil {
-                        dragBaseHeight = clampedBLEHeight
-                    }
-                    let proposed = (dragBaseHeight ?? blePaneHeight) + value.translation.height
-                    dragProposal = (min(max(proposed, Self.blePaneMinHeight), maxBLEHeight)).rounded()
-                }
-                .onEnded { _ in
-                    if let dragProposal {
-                        withAnimation(.easeOut(duration: 0.12)) {
-                            blePaneHeight = dragProposal
-                        }
-                    }
-                    dragProposal = nil
-                    dragBaseHeight = nil
-                }
-        )
-        .help("Drag to divide the space between the modules")
-    }
-
     private func clientText(_ client: SocketClientInfo) -> String {
         guard let version = client.libraryVersion else { return client.displayText }
         return "\(client.displayText) · lib \(version)"
     }
 
     private func moduleHeader<Icon: View>(
-        name: String,
+        _ module: Module,
         detail: String,
         color: Color,
-        isExpanded: Binding<Bool>,
         @ViewBuilder icon: () -> Icon
     ) -> some View {
-        Button {
+        let isExpanded = expandedModule == module
+        return Button {
             withAnimation(.easeInOut(duration: 0.2)) {
-                isExpanded.wrappedValue.toggle()
+                expandedModule = isExpanded ? nil : module
             }
         } label: {
             HStack(spacing: 6) {
                 icon()
                     .foregroundStyle(color)
                     .frame(width: 16, alignment: .trailing)
-                Text(name)
+                Text(module.rawValue)
                     .font(.subheadline.weight(.semibold))
                 Text(detail)
                     .font(.caption2)
@@ -403,7 +316,7 @@ struct SuitePanelContent: View {
                 Circle()
                     .fill(color)
                     .frame(width: 7, height: 7)
-                Image(systemName: isExpanded.wrappedValue ? "chevron.down" : "chevron.right")
+                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .frame(width: 12)
@@ -414,7 +327,7 @@ struct SuitePanelContent: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(name), \(isExpanded.wrappedValue ? "expanded" : "collapsed")")
+        .accessibilityLabel("\(module.rawValue), \(isExpanded ? "expanded" : "collapsed")")
     }
 
     private var footer: some View {
@@ -448,13 +361,5 @@ struct SuitePanelContent: View {
             .foregroundStyle(.secondary)
         }
         .padding(12)
-    }
-}
-
-private extension Binding where Value == Bool {
-    /// @AppStorage stores "collapsed" (so fresh installs start expanded), but
-    /// the header reads more naturally in terms of "expanded".
-    var inverted: Binding<Bool> {
-        Binding(get: { !wrappedValue }, set: { wrappedValue = !$0 })
     }
 }

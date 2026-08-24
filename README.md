@@ -32,12 +32,12 @@ NFCromancer each have their own Off / Mock / Passthrough selection — BLE
 passthrough alongside camera mock is a perfectly normal combination.
 Simulacrum is different in kind: there's no mode to switch, just a fixture
 editor and a "Seed" button that writes real data into whichever simulator is
-currently booted. Sections collapse to their header, and a splitter divides
-the space between the two flexible modules (ImpossiBLE and CAMouflage);
-NFCromancer and Simulacrum sit below it as fixed-height panes. The splitter
-deliberately uses *delayed resize*: while dragging, only the grip travels and
-the panes snap once on release — live-resizing the sections' scrollable lists
-at mouse-event rate stutters badly on macOS (details in AGENTS.md). The menu
+currently booted. The panel is an exclusive accordion: every module keeps its
+header — with a live status dot — always visible, and exactly one module is
+expanded at a time, taking the full pane, the same room its standalone app
+would offer. (An earlier layout divided the panel between multiple expanded
+modules with a drag splitter; the history and the performance lessons behind
+abandoning that live in AGENTS.md.) The menu
 bar icon shows the live state of every active passthrough/mock module: the
 wand is the brand anchor, and each one contributes its own glyph in its
 product's state language (dot-badged when mocking, plain when forwarding,

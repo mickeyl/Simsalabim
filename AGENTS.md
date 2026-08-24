@@ -42,12 +42,22 @@
   + camera usage descriptions and Hardened Runtime device entitlements). A
   new module must extend both.
 
-## Performance: why the splitter uses delayed resize
+## Panel layout: exclusive accordion (and the splitter history behind it)
 
-The pane splitter freezes both panes while dragging — only the grip travels
-(a pure `.offset`, no layout) and the stored height is applied once, on
-release. This is deliberate and was arrived at the hard way; do not "fix" it
-back to live resizing without re-measuring:
+Since 2026-08-24 the panel is an **exclusive accordion**: all module headers
+stay visible (status dots included), exactly one module is expanded at a time
+(persisted as the `ExpandedModule` defaults key; empty = all collapsed), and
+the expanded module takes the full remaining pane — the same room its
+standalone app would offer. This replaced the earlier collapse-flags-plus-
+splitter layout, whose height math across N heterogeneous panes never carried
+its weight and had a known gap (fixed tail panes weren't subtracted from the
+flexible panes' budget).
+
+The splitter that layout used froze both panes while dragging — only the grip
+travelled (a pure `.offset`, no layout) and the stored height was applied
+once, on release. That was deliberate and was arrived at the hard way; the
+lessons below are why any future return to multiple simultaneously-resizing
+panes must be re-measured first:
 
 - **Live resize stuttered badly**, even on a 20-core machine, because the
   entire path is serial on the main thread: every mouse event (~100/s, above
@@ -81,9 +91,10 @@ switching the splitter behavior.
    `<Name>ProviderKit` library from `Sources/<Name>-Mac`).
 2. Add the path dependency and product to `Package.swift`.
 NFCromancer was added 2026-08-19 as the reference third module — it needs the
-`com.apple.security.smartcard` entitlement (unioned into `Resources/`) and sits
-as the last, intrinsic-height pane below the BLE↔CAM splitter. The suite's
-client row now aggregates all three provider sockets generically.
+`com.apple.security.smartcard` entitlement (unioned into `Resources/`). The
+suite's client row now aggregates all three provider sockets generically.
+(It originally sat as a fixed-height pane below the then-splitter layout;
+that distinction disappeared with the accordion.)
 
 Simulacrum was added 2026-08-24 as the fourth module and the first that
 doesn't fit the mode-picker shape at all — see its own
@@ -91,8 +102,7 @@ doesn't fit the mode-picker shape at all — see its own
 `ProviderMode`/`ModeTransitionController`: `SeedServer` just binds
 `/tmp/simulacrum.sock` in `SuiteRuntime.init()` (`.start()` called directly,
 no controller-driven start/stop), and stops in the quit chain like the other
-three. Its panel section is a fixed-height tail pane after NFCromancer's,
-plain `Divider()`, no new splitter — same precedent NFCromancer itself set.
+three. Its panel section is one accordion pane like everyone else's.
 It does **not** join the client row (its "device bar" is a booted-simulator
 picker, a different concept from a connected simulator-app client) and does
 **not** contribute to the composite menu-bar icon (no persistent "on" state
@@ -109,11 +119,9 @@ sandboxed) suite app already has.
 
 3. Extend `SuiteRuntime` (server + mode controller — or just a `.start()`
    call for a module with no mode, like Simulacrum), `SuitePanelContent`
-   (section + module header + collapsed/pane-height keys — every boundary
-   between adjacent expanded modules gets a drag splitter; the last expanded
-   pane takes the remainder, though in practice both NFCromancer and
-   Simulacrum opted for a plain fixed-height tail pane instead — follow
-   whichever the module's content actually needs), and the composite icon in
+   (one new `Module` enum case + a `moduleHeader` call + the expanded pane;
+   the accordion hands the open module the full pane, so there are no
+   per-module sizing keys to add), and the composite icon in
    `SuiteStatusBarController` (skip the icon contribution if the module has
    no ongoing "on"/"off" state to represent there).
 4. Union the module's usage descriptions/entitlements into `Resources/`.
