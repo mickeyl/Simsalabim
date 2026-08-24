@@ -347,6 +347,7 @@ struct SuitePanelContent: View {
             HStack(spacing: 6) {
                 icon()
                     .foregroundStyle(color)
+                    .frame(width: 16, alignment: .trailing)
                 Text(name)
                     .font(.subheadline.weight(.semibold))
                 Text(detail)
