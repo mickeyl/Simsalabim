@@ -3,6 +3,7 @@ import AppKit
 import ImpossiBLEProviderKit
 import CAMouflageProviderKit
 import NFCromancerProviderKit
+import SimulacrumProviderKit
 import SimBridgeShell
 
 /// One process, all providers: each module keeps its own socket, server, and
@@ -17,6 +18,9 @@ final class SuiteRuntime {
     let camController: ModeTransitionController<ProviderMode>
     let nfcServer: TagServer
     let nfcController: ModeTransitionController<ProviderMode>
+    let seedServer: SeedServer
+    let fixtureStore: FixtureStore
+    let seedRunner: SeedRunner
     let statusBar: SuiteStatusBarController
 
     static var shared: SuiteRuntime?
@@ -85,6 +89,15 @@ final class SuiteRuntime {
             }
         }
 
+        // Unlike the other three, there's no mode to switch — the server just
+        // listens for a seed agent to connect, same as its standalone-app
+        // counterpart (Simulacrum's own StatusBarController.init).
+        let seedServer = SeedServer()
+        self.seedServer = seedServer
+        seedServer.start()
+        fixtureStore = FixtureStore()
+        seedRunner = SeedRunner(server: seedServer)
+
         statusBar = SuiteStatusBarController(
             store: store,
             bleServer: bleServer,
@@ -93,7 +106,10 @@ final class SuiteRuntime {
             camCatalog: camCatalog,
             camController: camController,
             nfcServer: nfcServer,
-            nfcController: nfcController
+            nfcController: nfcController,
+            seedServer: seedServer,
+            fixtureStore: fixtureStore,
+            seedRunner: seedRunner
         )
     }
 }
@@ -110,7 +126,9 @@ final class SuiteAppDelegate: NSObject, NSApplicationDelegate {
         runtime.bleServer.stop {
             runtime.camServer.stop {
                 runtime.nfcServer.stop {
-                    sender.reply(toApplicationShouldTerminate: true)
+                    runtime.seedServer.stop {
+                        sender.reply(toApplicationShouldTerminate: true)
+                    }
                 }
             }
         }

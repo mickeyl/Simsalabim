@@ -4,6 +4,7 @@ import SwiftUI
 import ImpossiBLEProviderKit
 import CAMouflageProviderKit
 import NFCromancerProviderKit
+import SimulacrumProviderKit
 import SimBridgeServer
 import SimBridgeShell
 
@@ -21,6 +22,9 @@ final class SuiteStatusBarController: NSObject, NSWindowDelegate {
     private let camController: ModeTransitionController<ProviderMode>
     private let nfcServer: TagServer
     private let nfcController: ModeTransitionController<ProviderMode>
+    private let seedServer: SeedServer
+    private let fixtureStore: FixtureStore
+    private let seedRunner: SeedRunner
     private var panel: StatusItemPanelController!
     private var captureWindow: NSWindow?
     private var deviceWindows: [UUID: NSWindow] = [:]
@@ -43,7 +47,10 @@ final class SuiteStatusBarController: NSObject, NSWindowDelegate {
         camCatalog: CameraCatalog,
         camController: ModeTransitionController<ProviderMode>,
         nfcServer: TagServer,
-        nfcController: ModeTransitionController<ProviderMode>
+        nfcController: ModeTransitionController<ProviderMode>,
+        seedServer: SeedServer,
+        fixtureStore: FixtureStore,
+        seedRunner: SeedRunner
     ) {
         self.store = store
         self.bleServer = bleServer
@@ -53,6 +60,9 @@ final class SuiteStatusBarController: NSObject, NSWindowDelegate {
         self.camController = camController
         self.nfcServer = nfcServer
         self.nfcController = nfcController
+        self.seedServer = seedServer
+        self.fixtureStore = fixtureStore
+        self.seedRunner = seedRunner
         super.init()
         panel = StatusItemPanelController(
             title: "Simsalabim",
@@ -73,6 +83,9 @@ final class SuiteStatusBarController: NSObject, NSWindowDelegate {
                 nfcServer: self.nfcServer,
                 nfcTransport: self.nfcServer.transport,
                 nfcController: self.nfcController,
+                seedTransport: self.seedServer.transport,
+                fixtureStore: self.fixtureStore,
+                seedRunner: self.seedRunner,
                 onDismiss: { [weak self] in self?.panel.hidePanel() },
                 onOpenCapture: { [weak self] in self?.openCaptureWindow() },
                 onOpenDevice: { [weak self] deviceId in self?.openDeviceEditor(deviceId) }

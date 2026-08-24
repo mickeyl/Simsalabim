@@ -2,6 +2,7 @@ import SwiftUI
 import ImpossiBLEProviderKit
 import CAMouflageProviderKit
 import NFCromancerProviderKit
+import SimulacrumProviderKit
 import SimBridgeServer
 import SimBridgeShell
 
@@ -20,6 +21,9 @@ struct SuitePanelContent: View {
     @ObservedObject var nfcServer: TagServer
     @ObservedObject var nfcTransport: ProtocolServer
     @ObservedObject var nfcController: ModeTransitionController<ProviderMode>
+    @ObservedObject var seedTransport: ProtocolServer
+    @ObservedObject var fixtureStore: FixtureStore
+    @ObservedObject var seedRunner: SeedRunner
     var onDismiss: (() -> Void)?
     var onOpenCapture: (() -> Void)?
     var onOpenDevice: ((UUID) -> Void)?
@@ -32,6 +36,7 @@ struct SuitePanelContent: View {
     @AppStorage("ImpossiBLECollapsed") private var bleCollapsed = false
     @AppStorage("CAMouflageCollapsed") private var camCollapsed = false
     @AppStorage("NFCromancerCollapsed") private var nfcCollapsed = false
+    @AppStorage("SimulacrumCollapsed") private var seedCollapsed = false
     /// User-chosen height of the Bluetooth pane while both modules are
     /// expanded; the camera pane takes the remainder. Adjusted by dragging
     /// the splitter between the sections.
@@ -48,6 +53,23 @@ struct SuitePanelContent: View {
     private static let camPaneMinHeight = 240.0
 
     private var bothExpanded: Bool { !bleCollapsed && !camCollapsed }
+
+    /// Simulacrum has no Off/Mock/Passthrough mode to report — the dot
+    /// reflects the current run instead: quiet until a seed is in flight,
+    /// then blue while running, orange/red if the last one didn't finish
+    /// clean.
+    private var seedStatusColor: Color {
+        switch seedRunner.state {
+            case .idle:
+                .secondary
+            case .running:
+                .blue
+            case .finished(let summary):
+                summary.isClean ? .secondary : .orange
+            case .failed:
+                .red
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -125,7 +147,31 @@ struct SuitePanelContent: View {
                         )
                         .frame(height: 280)
                     }
-                    if bleCollapsed && camCollapsed && nfcCollapsed {
+                    Divider()
+
+                    moduleHeader(
+                        name: "Simulacrum",
+                        detail: "Seed Data",
+                        color: seedStatusColor,
+                        isExpanded: $seedCollapsed.inverted
+                    ) {
+                        Image(systemName: "tray.and.arrow.down")
+                            .font(.caption)
+                    }
+                    if !seedCollapsed {
+                        // Same intrinsic-height tail-pane treatment as
+                        // NFCromancer: this module's content (device picker,
+                        // short fixture list, Seed button) doesn't need
+                        // flexible scrolling space, so it doesn't get its own
+                        // splitter.
+                        SimulacrumSection(
+                            transport: seedTransport,
+                            fixtureStore: fixtureStore,
+                            runner: seedRunner
+                        )
+                        .frame(height: 280)
+                    }
+                    if bleCollapsed && camCollapsed && nfcCollapsed && seedCollapsed {
                         Spacer(minLength: 0)
                     }
                 }

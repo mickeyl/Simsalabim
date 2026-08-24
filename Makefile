@@ -21,13 +21,25 @@ ICON_SOURCE = Assets/AppIcon.png
 INSTALLED_APP = $(INSTALL_DIR)/$(SUITE_BUNDLE)
 SUITE_DIST_ZIP = Simsalabim.zip
 
+# SeedAgent (Simulacrum's simulator-installed app) ships as a bundled
+# resource, same as the module icons above — one suite build produces a
+# host app that can seed on its own. Cross-compiled for the iOS Simulator
+# SDK straight from the submodule checkout; ad hoc signing is sufficient
+# for `simctl install` (see Modules/Simulacrum/Makefile's own `agent`
+# target, which this mirrors).
+AGENT_DIR = Modules/Simulacrum
+AGENT_SDK := $(shell xcrun --sdk iphonesimulator --show-sdk-path)
+AGENT_TRIPLE ?= arm64-apple-ios17.0-simulator
+AGENT_APP = $(AGENT_DIR)/SeedAgent.app
+FIXTURE_PHOTOS_SOURCE = $(AGENT_DIR)/Sources/Simulacrum-Mac/Resources/Fixtures
+
 # Monotonic build number derived from commit count; falls back to the value
 # already in the source Info.plist when the tree is not a git checkout.
 BUILD_NUMBER := $(shell git rev-list --count HEAD 2>/dev/null)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap check-pins suite suite-debug relaunch install uninstall run stop status log assess notarize clean
+.PHONY: help bootstrap check-pins suite suite-debug relaunch install uninstall run stop status log assess notarize clean bundle-agent agent-clean
 
 help:
 	@echo "Usage: make <target>"
@@ -79,7 +91,7 @@ suite-debug:
 	@cp $$(swift build $(SWIFTPM_FLAGS) --show-bin-path)/$(SUITE_BIN_NAME) $(SUITE_BIN)
 	@cp $(FONT_RESOURCE) $(SUITE_BUNDLE)/Contents/Resources/
 	@for icon in $(MODULE_ICONS); do [ -f "$$icon" ] && cp "$$icon" $(SUITE_BUNDLE)/Contents/Resources/ || true; done
-	@$(MAKE) --no-print-directory icon
+	@$(MAKE) --no-print-directory icon bundle-agent
 	@codesign --force --sign - --entitlements $(SUITE_ENTITLEMENTS) $(SUITE_BUNDLE) >/dev/null
 	@xattr -cr $(SUITE_BUNDLE) 2>/dev/null || true
 
@@ -96,7 +108,7 @@ $(SUITE_BIN): $(SUITE_SRCS) $(SUITE_PLIST) $(SUITE_ENTITLEMENTS)
 	cp $$(swift build $(SWIFTPM_FLAGS) -c release --show-bin-path)/$(SUITE_BIN_NAME) $(SUITE_BIN)
 	cp $(FONT_RESOURCE) $(SUITE_BUNDLE)/Contents/Resources/
 	@for icon in $(MODULE_ICONS); do [ -f "$$icon" ] && cp "$$icon" $(SUITE_BUNDLE)/Contents/Resources/ || true; done
-	@$(MAKE) --no-print-directory icon
+	@$(MAKE) --no-print-directory icon bundle-agent
 	@if [ -z "$(SUITE_SIGN_IDENTITY)" ]; then \
 		echo "WARNING: No codesigning identity matching '$(SUITE_CODESIGN_MATCH)' found in your keychain."; \
 		echo "Signing the suite app ad hoc. Gatekeeper will reject quarantined or distributed copies."; \
@@ -121,6 +133,28 @@ icon:
 		iconutil -c icns /tmp/simsalabim-icon.iconset -o $(SUITE_BUNDLE)/Contents/Resources/AppIcon.icns; \
 		rm -rf /tmp/simsalabim-icon.iconset; \
 	fi
+
+# Cross-compiles SeedAgent for the iOS Simulator SDK from the Simulacrum
+# submodule and copies the ad-hoc-signed .app plus its fixture photo
+# swatches into the suite bundle's Resources — SeedRunner (inside
+# SimulacrumProviderKit) finds both via Bundle.main.resourceURL, whichever
+# host app it's running in.
+$(AGENT_APP):
+	@cd $(AGENT_DIR) && swift build --sdk $(AGENT_SDK) --triple $(AGENT_TRIPLE) 2>&1 | tail -3
+	@rm -rf $(AGENT_APP)
+	@mkdir -p $(AGENT_APP)
+	@cp $$(cd $(AGENT_DIR) && swift build --sdk $(AGENT_SDK) --triple $(AGENT_TRIPLE) --show-bin-path)/SeedAgent $(AGENT_APP)/SeedAgent
+	@cp $(AGENT_DIR)/Sources/SeedAgent/Resources/Info.plist $(AGENT_APP)/Info.plist
+	@codesign --force --sign - $(AGENT_APP) >/dev/null
+
+bundle-agent: $(AGENT_APP)
+	@mkdir -p $(SUITE_BUNDLE)/Contents/Resources/Fixtures
+	@rm -rf $(SUITE_BUNDLE)/Contents/Resources/SeedAgent.app
+	@cp -R $(AGENT_APP) $(SUITE_BUNDLE)/Contents/Resources/SeedAgent.app
+	@cp $(FIXTURE_PHOTOS_SOURCE)/*.png $(SUITE_BUNDLE)/Contents/Resources/Fixtures/ 2>/dev/null || true
+
+agent-clean:
+	rm -rf $(AGENT_APP)
 
 install: suite
 	mkdir -p $(INSTALL_DIR)
@@ -178,5 +212,5 @@ notarize:
 	xcrun stapler staple $(SUITE_BUNDLE)
 	$(MAKE) assess
 
-clean:
+clean: agent-clean
 	rm -rf $(SUITE_BUNDLE) $(SUITE_DIST_ZIP)

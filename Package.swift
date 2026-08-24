@@ -15,6 +15,7 @@ let package = Package(
         .package(path: "Modules/ImpossiBLE/Sources/ImpossiBLE-Mac"),
         .package(path: "Modules/CAMouflage/Sources/CAMouflage-Mac"),
         .package(path: "Modules/NFCromancer/Sources/NFCromancer-Mac"),
+        .package(path: "Modules/Simulacrum/Sources/Simulacrum-Mac"),
         .package(url: "https://github.com/mickeyl/SimBridgeKit.git", from: "0.1.1"),
     ],
     targets: [
@@ -24,6 +25,7 @@ let package = Package(
                 .product(name: "ImpossiBLEProviderKit", package: "ImpossiBLE-Mac"),
                 .product(name: "CAMouflageProviderKit", package: "CAMouflage-Mac"),
                 .product(name: "NFCromancerProviderKit", package: "NFCromancer-Mac"),
+                .product(name: "SimulacrumProviderKit", package: "Simulacrum-Mac"),
                 .product(name: "SimBridgeServer", package: "SimBridgeKit"),
                 .product(name: "SimBridgeShell", package: "SimBridgeKit"),
             ],

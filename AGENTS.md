@@ -6,11 +6,12 @@
   mode controller per product), `SuiteStatusBarController` (composite status
   icon, panel, ImpossiBLE's capture/editor document windows), and
   `SuitePanelContent` (stacked provider sections + shared footer).
-- `Modules/ImpossiBLE`, `Modules/CAMouflage` — git submodules of the product
-  repos. The suite consumes their nested provider packages via **path
-  dependencies** (`Modules/<P>/Sources/<P>-Mac`), so a
-  `git clone --recursive` builds without any tag-bump dance. The submodule
-  pins are the record of which product versions a suite release ships.
+- `Modules/ImpossiBLE`, `Modules/CAMouflage`, `Modules/NFCromancer`,
+  `Modules/Simulacrum` — git submodules of the product repos. The suite
+  consumes their nested provider packages via **path dependencies**
+  (`Modules/<P>/Sources/<P>-Mac`), so a `git clone --recursive` builds
+  without any tag-bump dance. The submodule pins are the record of which
+  product versions a suite release ships.
 - `PLAN.md` — the consolidation plan that produced this architecture
   (Steps 1–3 happened in the product repos and SimBridgeKit).
 - `Assets/` — logo and app icon sources. `make` renders `Assets/AppIcon.png`
@@ -84,17 +85,43 @@ NFCromancer was added 2026-08-19 as the reference third module — it needs the
 as the last, intrinsic-height pane below the BLE↔CAM splitter. The suite's
 client row now aggregates all three provider sockets generically.
 
-3. Extend `SuiteRuntime` (server + mode controller), `SuitePanelContent`
+Simulacrum was added 2026-08-24 as the fourth module and the first that
+doesn't fit the mode-picker shape at all — see its own
+`~/Documents/late/Simulacrum/SEEDING_PLAN.md` for the design. No
+`ProviderMode`/`ModeTransitionController`: `SeedServer` just binds
+`/tmp/simulacrum.sock` in `SuiteRuntime.init()` (`.start()` called directly,
+no controller-driven start/stop), and stops in the quit chain like the other
+three. Its panel section is a fixed-height tail pane after NFCromancer's,
+plain `Divider()`, no new splitter — same precedent NFCromancer itself set.
+It does **not** join the client row (its "device bar" is a booted-simulator
+picker, a different concept from a connected simulator-app client) and does
+**not** contribute to the composite menu-bar icon (no persistent "on" state
+to represent there — the status dot in its own header reflects the last
+seed run instead: `.secondary` idle/clean, `.blue` running, `.orange`
+finished-with-errors, `.red` failed). The suite's own `Makefile` gained an
+`$(AGENT_APP)`/`bundle-agent` step that cross-compiles `SeedAgent` from
+`Modules/Simulacrum` for the iOS Simulator SDK and copies the ad-hoc-signed
+`.app` plus fixture photo swatches into `Resources/` — wired into both
+`suite` and `suite-debug`, mirroring how the module icons/font already get
+bundled. No entitlement changes: `SeedRunner` only shells out to `simctl`
+and opens a Unix socket, neither needs anything beyond what the (non-
+sandboxed) suite app already has.
+
+3. Extend `SuiteRuntime` (server + mode controller — or just a `.start()`
+   call for a module with no mode, like Simulacrum), `SuitePanelContent`
    (section + module header + collapsed/pane-height keys — every boundary
    between adjacent expanded modules gets a drag splitter; the last expanded
-   pane takes the remainder), and the composite icon in
-   `SuiteStatusBarController`.
+   pane takes the remainder, though in practice both NFCromancer and
+   Simulacrum opted for a plain fixed-height tail pane instead — follow
+   whichever the module's content actually needs), and the composite icon in
+   `SuiteStatusBarController` (skip the icon contribution if the module has
+   no ongoing "on"/"off" state to represent there).
 4. Union the module's usage descriptions/entitlements into `Resources/`.
 
 ## Release Checklist
 
-- `make check-pins` — both submodule pins must be release tags reachable on
-  their `origin/master`.
+- `make check-pins` — every submodule pin must be a release tag reachable on
+  its `origin/master`.
 - Bump `CFBundleShortVersionString` in `Resources/Info.plist`.
 - `make suite && make assess`, then `make notarize NOTARY_PROFILE=…`.
 - Tag, push, GitHub release.
