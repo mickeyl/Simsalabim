@@ -140,10 +140,10 @@ icon:
 # SimulacrumProviderKit) finds both via Bundle.main.resourceURL, whichever
 # host app it's running in.
 $(AGENT_APP):
-	@cd $(AGENT_DIR) && swift build --sdk $(AGENT_SDK) --triple $(AGENT_TRIPLE) 2>&1 | tail -3
+	@cd $(AGENT_DIR) && swift build $(SWIFTPM_FLAGS) --sdk $(AGENT_SDK) --triple $(AGENT_TRIPLE) 2>&1 | tail -3
 	@rm -rf $(AGENT_APP)
 	@mkdir -p $(AGENT_APP)
-	@cp $$(cd $(AGENT_DIR) && swift build --sdk $(AGENT_SDK) --triple $(AGENT_TRIPLE) --show-bin-path)/SeedAgent $(AGENT_APP)/SeedAgent
+	@cp $$(cd $(AGENT_DIR) && swift build $(SWIFTPM_FLAGS) --sdk $(AGENT_SDK) --triple $(AGENT_TRIPLE) --show-bin-path)/SeedAgent $(AGENT_APP)/SeedAgent
 	@cp $(AGENT_DIR)/Sources/SeedAgent/Resources/Info.plist $(AGENT_APP)/Info.plist
 	@codesign --force --sign - $(AGENT_APP) >/dev/null
 
