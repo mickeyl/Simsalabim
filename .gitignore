@@ -1,5 +1,8 @@
 .build/
-.swiftpm/
+.swiftpm/*
+!.swiftpm/xcode/
+.swiftpm/xcode/*
+!.swiftpm/xcode/xcshareddata/
 *.app
 *.dSYM
 Simsalabim.zip
