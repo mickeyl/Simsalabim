@@ -81,6 +81,7 @@ struct SuitePanelContent: View {
             moduleHeader(
                 .impossible,
                 detail: "Bluetooth LE",
+                controller: bleController,
                 color: ImpossiBLESection.statusColor(mode: bleController.mode, status: bleTransport.status)
             ) {
                 Image(nsImage: FontAwesome.brandImage(FontAwesome.bluetoothB, size: 14))
@@ -104,6 +105,7 @@ struct SuitePanelContent: View {
             moduleHeader(
                 .camouflage,
                 detail: "Camera",
+                controller: camController,
                 color: CAMouflageSection.statusColor(
                     mode: camController.mode,
                     status: camTransport.status,
@@ -133,6 +135,7 @@ struct SuitePanelContent: View {
             moduleHeader(
                 .nfcromancer,
                 detail: "NFC",
+                controller: nfcController,
                 color: NFCromancerSection.statusColor(mode: nfcController.mode, status: nfcTransport.status)
             ) {
                 Image(systemName: "wave.3.right")
@@ -291,13 +294,19 @@ struct SuitePanelContent: View {
         return "\(client.displayText) · lib \(version)"
     }
 
+    /// `controller` is nil for modules without an Off mode (Simulacrum).
     private func moduleHeader<Icon: View>(
         _ module: Module,
         detail: String,
+        controller: ModeTransitionController<ProviderMode>? = nil,
         color: Color,
         @ViewBuilder icon: () -> Icon
     ) -> some View {
         let isExpanded = expandedModule == module
+        // A running provider that is parked in a collapsed section would
+        // otherwise need two clicks to switch off; the overlay sits above
+        // the header button, so it takes the hit itself.
+        let showsQuickOff = !isExpanded && controller.map { $0.mode != .off } == true
         return Button {
             withAnimation(.easeInOut(duration: 0.2)) {
                 expandedModule = isExpanded ? nil : module
@@ -328,6 +337,24 @@ struct SuitePanelContent: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(module.rawValue), \(isExpanded ? "expanded" : "collapsed")")
+        .overlay(alignment: .trailing) {
+            if showsQuickOff, let controller {
+                Button {
+                    controller.select(.off)
+                } label: {
+                    Image(systemName: "power")
+                        .font(.caption2.weight(.semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .disabled(controller.isSwitching)
+                .help("Switch \(module.rawValue) off")
+                .accessibilityLabel("Switch \(module.rawValue) off")
+                // Clears the status dot and chevron the header draws at its
+                // trailing edge.
+                .padding(.trailing, 43)
+            }
+        }
     }
 
     private var footer: some View {
