@@ -131,7 +131,10 @@ sandboxed) suite app already has.
 - `make check-pins` — every submodule pin must be a release tag reachable on
   its `origin/master`.
 - Bump `CFBundleShortVersionString` in `Resources/Info.plist`.
-- `make suite && make assess`, then `make notarize NOTARY_PROFILE=…`.
+- `make suite && make assess`, then `make notarize NOTARY_PROFILE=…` — or, where
+  no notarytool keychain profile exists, zip the bundle (`ditto -c -k
+  --keepParent --sequesterRsrc`), `asc notarization submit --file Simsalabim.zip
+  --wait`, `xcrun stapler staple Simsalabim.app`, and re-zip.
 - Tag, push, GitHub release.
 
 ## Validation
