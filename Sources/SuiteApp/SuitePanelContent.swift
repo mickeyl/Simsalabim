@@ -305,8 +305,10 @@ struct SuitePanelContent: View {
         let isExpanded = expandedModule == module
         // A running provider that is parked in a collapsed section would
         // otherwise need two clicks to switch off; the overlay sits above
-        // the header button, so it takes the hit itself.
-        let showsQuickOff = !isExpanded && controller.map { $0.mode != .off } == true
+        // the header button, so it takes the hit itself. Kept visible (just
+        // disabled) rather than removed when there's nothing to switch off,
+        // so the control doesn't jump around as the mode changes.
+        let showsQuickOff = !isExpanded && controller != nil
         return Button {
             withAnimation(.easeInOut(duration: 0.2)) {
                 expandedModule = isExpanded ? nil : module
@@ -347,7 +349,7 @@ struct SuitePanelContent: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
-                .disabled(controller.isSwitching)
+                .disabled(controller.isSwitching || controller.mode == .off)
                 .help("Switch \(module.rawValue) off")
                 .accessibilityLabel("Switch \(module.rawValue) off")
                 // Clears the status dot and chevron the header draws at its
