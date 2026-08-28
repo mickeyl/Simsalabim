@@ -21,6 +21,16 @@ ICON_SOURCE = Assets/AppIcon.png
 INSTALLED_APP = $(INSTALL_DIR)/$(SUITE_BUNDLE)
 SUITE_DIST_ZIP = Simsalabim.zip
 
+# The headless CLI ships as a bare binary, not an app bundle — SeedRunner
+# resolves SeedAgent.app/Fixtures via Bundle.main.resourceURL, which for a
+# bare SwiftPM executable is just the directory next to it, so both are
+# staged alongside the binary (here, and again next to it in $(INSTALL_DIR)).
+CLI_BIN_NAME = simsalabim
+CLI_STAGE_DIR = simsalabim-cli
+CLI_BIN = $(CLI_STAGE_DIR)/$(CLI_BIN_NAME)
+CLI_MAN_SRC = Man/simsalabim.1
+MAN_INSTALL_DIR = $(prefix)/share/man/man1
+
 # SeedAgent (Simulacrum's simulator-installed app) ships as a bundled
 # resource, same as the module icons above — one suite build produces a
 # host app that can seed on its own. Cross-compiled for the iOS Simulator
@@ -39,7 +49,7 @@ BUILD_NUMBER := $(shell git rev-list --count HEAD 2>/dev/null)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap check-pins suite suite-debug relaunch install uninstall run stop status log assess notarize clean bundle-agent agent-clean
+.PHONY: help bootstrap check-pins suite suite-debug relaunch install uninstall run stop status log assess notarize clean bundle-agent agent-clean cli cli-install cli-uninstall
 
 help:
 	@echo "Usage: make <target>"
@@ -59,6 +69,11 @@ help:
 	@echo "  install     Build and install to \$$(prefix)/bin  [$(prefix)]"
 	@echo "  uninstall   Remove installed files from \$$(prefix)/bin"
 	@echo "  clean       Remove build artifacts"
+	@echo ""
+	@echo "Headless CLI (drives a running Simsalabim.app, and can seed on its own):"
+	@echo "  cli           Build the simsalabim binary into $(CLI_STAGE_DIR)/"
+	@echo "  cli-install   Build and install to \$$(prefix)/bin, with its man page  [$(prefix)]"
+	@echo "  cli-uninstall Remove the installed CLI binary and man page"
 	@echo ""
 	@echo "Variables:"
 	@echo "  SUITE_CODESIGN_MATCH  Signing identity  [$(SUITE_CODESIGN_MATCH)]"
@@ -156,6 +171,29 @@ bundle-agent: $(AGENT_APP)
 agent-clean:
 	rm -rf $(AGENT_APP)
 
+cli: $(AGENT_APP)
+	swift build $(SWIFTPM_FLAGS) -c release --product $(CLI_BIN_NAME)
+	@mkdir -p $(CLI_STAGE_DIR)/Fixtures
+	@cp $$(swift build $(SWIFTPM_FLAGS) -c release --show-bin-path)/$(CLI_BIN_NAME) $(CLI_BIN)
+	@rm -rf $(CLI_STAGE_DIR)/SeedAgent.app
+	@cp -R $(AGENT_APP) $(CLI_STAGE_DIR)/SeedAgent.app
+	@cp $(FIXTURE_PHOTOS_SOURCE)/*.png $(CLI_STAGE_DIR)/Fixtures/ 2>/dev/null || true
+
+cli-install: cli
+	mkdir -p $(INSTALL_DIR)
+	cp $(CLI_BIN) $(INSTALL_DIR)/$(CLI_BIN_NAME)
+	rm -rf $(INSTALL_DIR)/SeedAgent.app $(INSTALL_DIR)/Fixtures
+	cp -R $(CLI_STAGE_DIR)/SeedAgent.app $(INSTALL_DIR)/SeedAgent.app
+	cp -R $(CLI_STAGE_DIR)/Fixtures $(INSTALL_DIR)/Fixtures
+	mkdir -p $(MAN_INSTALL_DIR)
+	cp $(CLI_MAN_SRC) $(MAN_INSTALL_DIR)/simsalabim.1
+	@echo "Installed. Try: man simsalabim (add $(MAN_INSTALL_DIR) to \$$MANPATH if not already on it)"
+
+cli-uninstall:
+	rm -f $(INSTALL_DIR)/$(CLI_BIN_NAME) $(MAN_INSTALL_DIR)/simsalabim.1
+	rm -rf $(INSTALL_DIR)/SeedAgent.app $(INSTALL_DIR)/Fixtures
+	@echo "simsalabim CLI uninstalled from $(INSTALL_DIR)"
+
 install: suite
 	mkdir -p $(INSTALL_DIR)
 	rm -rf $(INSTALLED_APP)
@@ -213,4 +251,4 @@ notarize:
 	$(MAKE) assess
 
 clean: agent-clean
-	rm -rf $(SUITE_BUNDLE) $(SUITE_DIST_ZIP)
+	rm -rf $(SUITE_BUNDLE) $(SUITE_DIST_ZIP) $(CLI_STAGE_DIR)

@@ -6,6 +6,7 @@
 *.app
 *.dSYM
 Simsalabim.zip
+/simsalabim-cli/
 .DS_Store
 xcuserdata/
 Modules/*/Sources/*/.build/

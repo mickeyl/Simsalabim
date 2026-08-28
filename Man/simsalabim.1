@@ -1,0 +1,157 @@
+.Dd August 28, 2026
+.Dt SIMSALABIM 1
+.Os
+.Sh NAME
+.Nm simsalabim
+.Nd headless control for the Simsalabim suite
+.Sh SYNOPSIS
+.Nm
+.Cm status
+.Op Fl -json
+.Nm
+.Cm mode
+.Ar module
+.Ar mode
+.Op Fl -launch
+.Nm
+.Cm seed
+.Op Fl -contacts
+.Op Fl -calendar
+.Op Fl -reminders
+.Op Fl -photos
+.Op Fl -device Ar udid
+.Op Fl -json
+.Sh DESCRIPTION
+The
+.Nm
+utility drives a running
+.Pa Simsalabim.app
+instance — the macOS menu bar suite that retrofits the iOS Simulator with
+real Bluetooth, camera, and NFC hardware, plus seeded Contacts, Calendar,
+Reminders, and Photos data — from the command line, for scripting and CI.
+.Pp
+.Ic status
+and
+.Ic mode
+talk to Simsalabim.app over a local control socket at
+.Pa /tmp/simsalabim.sock ,
+so the app must already be running, or be started with
+.Fl -launch .
+.Ic seed
+drives the simulator directly and does
+.Em not
+require Simsalabim.app to be running — in fact it must not be, since both
+bind the same
+.Pa /tmp/simulacrum.sock .
+.Sh SUBCOMMANDS
+.Bl -tag -width Ds
+.It Ic status Op Fl -json
+Prints each hardware module's current mode
+.Pq Sy impossible , Sy camouflage , Sy nfcromancer
+and whether it is mid-transition.
+With
+.Fl -json ,
+prints the raw response object instead of a table.
+.It Ic mode Ar module Ar mode Op Fl -launch
+Switches one module to
+.Ar mode
+on the running Simsalabim.app.
+.Ar module
+is one of
+.Sy impossible , Sy camouflage , Sy nfcromancer ;
+.Ar mode
+is one of
+.Sy off , Sy mock , Sy passthrough .
+The call blocks until the transition settles, or the request fails after a
+10-second timeout.
+With
+.Fl -launch ,
+starts Simsalabim.app first if it is not already running, and waits up to
+15 seconds for it to become reachable.
+.It Ic seed
+Seeds a booted simulator with the fixture Simulacrum's own UI stores at
+.Pa ~/Library/Application\~Support/Simulacrum/fixture.json .
+With no category flag
+.Po
+.Fl -contacts , Fl -calendar , Fl -reminders , Fl -photos
+.Pc
+given, seeds every category.
+Without
+.Fl -device Ar udid ,
+targets the single booted simulator — an error if there are zero or more
+than one.
+With
+.Fl -json ,
+prints the finished summary as JSON instead of plain text.
+.El
+.Sh FILES
+.Bl -tag -width "/tmp/simulacrum.sock"
+.It Pa /tmp/simsalabim.sock
+Control socket for
+.Ic status
+and
+.Ic mode .
+Owned by Simsalabim.app while it runs; one connection per request.
+.It Pa /tmp/simulacrum.sock
+Seed-agent socket used by
+.Ic seed
+and by Simsalabim.app's own Simulacrum module — only one owner at a time.
+.El
+.Sh EXIT STATUS
+.Bl -tag -width Ds
+.It 0
+Success.
+.It 64
+Invalid
+.Ar module No / Ar mode
+argument, or an ambiguous
+.Ic seed
+device selection (multiple booted simulators and no
+.Fl -device ) .
+.It 69
+Simsalabim.app is not reachable and
+.Fl -launch
+was not passed, or
+.Fl -launch
+timed out.
+.It 70
+The control socket reported failure, a mode transition timed out, or
+.Ic seed
+failed — including being blocked by a Simsalabim.app that is already
+running.
+.El
+.Sh EXAMPLES
+Show current modes:
+.Bd -literal -offset indent
+$ simsalabim status
+impossible: off
+camouflage: mock
+nfcromancer: off
+.Ed
+.Pp
+Switch ImpossiBLE to passthrough, starting the app first if needed:
+.Bd -literal -offset indent
+$ simsalabim mode impossible passthrough --launch
+.Ed
+.Pp
+Seed contacts and calendar events into a specific simulator:
+.Bd -literal -offset indent
+$ simsalabim seed --contacts --calendar \e
+    --device 1E2C3B4A-5678-90AB-CDEF-1234567890AB
+.Ed
+.Sh SEE ALSO
+.Xr defaults 1 ,
+.Xr xcrun 1
+.Sh CAVEATS
+.Ic mode
+and
+.Ic status
+only see a running Simsalabim.app; they do not read or write
+.Xr defaults 1
+directly, since the app itself reads its defaults domain exactly once, at
+launch.
+.Pp
+.Ic seed
+and a running Simsalabim.app cannot seed at the same time — both bind
+.Pa /tmp/simulacrum.sock ,
+and the second one to start loses.

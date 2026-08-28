@@ -21,6 +21,7 @@ final class SuiteRuntime {
     let seedServer: SeedServer
     let fixtureStore: FixtureStore
     let seedRunner: SeedRunner
+    let controlServer: SuiteControlServer
     let statusBar: SuiteStatusBarController
 
     static var shared: SuiteRuntime?
@@ -98,6 +99,13 @@ final class SuiteRuntime {
         fixtureStore = FixtureStore()
         seedRunner = SeedRunner(server: seedServer)
 
+        // Lets external tooling (the `simsalabim` CLI) drive the same
+        // ModeTransitionControllers the menu bar UI does, live.
+        controlServer = SuiteControlServer(
+            handler: SuiteControlHandler(bleController: bleController, camController: camController, nfcController: nfcController)
+        )
+        controlServer.start()
+
         statusBar = SuiteStatusBarController(
             store: store,
             bleServer: bleServer,
@@ -127,7 +135,9 @@ final class SuiteAppDelegate: NSObject, NSApplicationDelegate {
             runtime.camServer.stop {
                 runtime.nfcServer.stop {
                     runtime.seedServer.stop {
-                        sender.reply(toApplicationShouldTerminate: true)
+                        runtime.controlServer.stop {
+                            sender.reply(toApplicationShouldTerminate: true)
+                        }
                     }
                 }
             }

@@ -309,8 +309,6 @@ level up). Implemented once in SimBridgeKit's server:
 
 - Unified cross-module test-fixture API (one `SetMockConfiguration` for the
   whole simulated environment) — wants SimBridgeKit to exist first.
-- `simsalabim` CLI for headless CI control (today: `defaults write` +
-  Makefiles).
 - Shared simulator-side connection core (constraint 4 note in §3.2).
 - New modules (ExternalAccessory, CoreNFC, CoreMotion, …) — each starts as a
   product repo following the post-Step-3 template.
