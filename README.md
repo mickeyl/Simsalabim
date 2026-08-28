@@ -72,6 +72,20 @@ prompt for Bluetooth and/or camera access; NFC passthrough requires a USB
 ACR122U reader. Simulacrum needs no setup — with a simulator booted, click
 "Seed" in its section.
 
+## Headless CLI
+
+`simsalabim` drives a running Simsalabim.app from the command line — live
+mode switches, status queries, and simulator seeding — for scripting and CI:
+
+```bash
+make cli-install   # installs to ~/.local/bin, plus its man page
+simsalabim status
+simsalabim mode impossible passthrough --launch
+simsalabim seed --contacts --calendar
+```
+
+Full reference: `man simsalabim`.
+
 ## Building blocks
 
 ```
