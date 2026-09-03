@@ -7,12 +7,23 @@ import PackageDescription
 // suite release ships.
 let package = Package(
     name: "Simsalabim",
-    platforms: [.macOS("15.0")],
+    platforms: [
+        .macOS("15.0"),
+        .iOS(.v15),
+    ],
     products: [
+        .library(name: "SimsalabimClient", targets: ["SimsalabimClient"]),
         .executable(name: "Simsalabim", targets: ["Simsalabim"]),
         .executable(name: "simsalabim", targets: ["simsalabim"]),
     ],
     dependencies: [
+        // Simulator-side client packages. SwiftPM initializes these
+        // submodules when Simsalabim itself is consumed by URL.
+        .package(path: "Modules/ImpossiBLE"),
+        .package(path: "Modules/CAMouflage"),
+        .package(path: "Modules/NFCromancer"),
+
+        // macOS provider packages used by the suite app.
         .package(path: "Modules/ImpossiBLE/Sources/ImpossiBLE-Mac"),
         .package(path: "Modules/CAMouflage/Sources/CAMouflage-Mac"),
         .package(path: "Modules/NFCromancer/Sources/NFCromancer-Mac"),
@@ -21,6 +32,26 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
     ],
     targets: [
+        .target(
+            name: "SimsalabimClient",
+            dependencies: [
+                .product(
+                    name: "ImpossiBLE",
+                    package: "ImpossiBLE",
+                    condition: .when(platforms: [.iOS])
+                ),
+                .product(
+                    name: "CAMouflage",
+                    package: "CAMouflage",
+                    condition: .when(platforms: [.iOS])
+                ),
+                .product(
+                    name: "NFCromancer",
+                    package: "NFCromancer",
+                    condition: .when(platforms: [.iOS])
+                ),
+            ]
+        ),
         .executableTarget(
             name: "Simsalabim",
             dependencies: [

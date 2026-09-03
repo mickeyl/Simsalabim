@@ -26,8 +26,9 @@ Each product remains an individually installable, self-contained tool with its
 own standalone menu bar app; Simsalabim embeds the very same provider
 libraries (`ImpossiBLEProviderKit`, `CAMouflageProviderKit`,
 `NFCromancerProviderKit`, `SimulacrumProviderKit`) side by side. The iOS-side
-integration is unchanged — your simulator app links the product library it
-needs and cannot tell which host app is serving.
+integration is unchanged — your simulator app links either the single
+`SimsalabimClient` umbrella or the individual product libraries and cannot tell
+which host app is serving.
 
 ## How it works
 
@@ -56,6 +57,47 @@ the standalone apps. The shared foundation —
 socket-ownership guard: whichever app (standalone or suite) binds a provider
 socket first keeps it, and the other shows **Blocked** instead of silently
 stealing it.
+
+## Integrating your iOS app
+
+Add this repository as a Swift Package dependency to the app you want to run
+in the iOS Simulator. The umbrella product is available starting with
+Simsalabim 0.6.0:
+
+```swift
+dependencies: [
+    .package(
+        url: "https://github.com/mickeyl/Simsalabim.git",
+        from: "0.6.0"
+    ),
+]
+```
+
+Then add the **`SimsalabimClient`** library product to your app target. In
+Xcode, use **File → Add Package Dependencies…**, enter the repository URL, and
+select `SimsalabimClient` when Xcode asks which product to add.
+
+The product links all three transparent simulator bridges in one step:
+`ImpossiBLE`, `CAMouflage`, and `NFCromancer`. No changes to your
+CoreBluetooth, AVFoundation, or CoreNFC code are required. Run Simsalabim on
+the Mac, select each provider's mode in the panel, and launch your app in the
+iOS Simulator. Device builds keep using Apple's real frameworks; the bridge
+implementations become no-ops there.
+
+Importing the umbrella module is only necessary when you use the optional
+test-fixture APIs directly:
+
+```swift
+import SimsalabimClient
+
+let bleReady = ImpossiBLEIsProviderConnected()
+let cameraReady = CAMouflageIsProviderConnected()
+let nfcReady = NFCromancerIsProviderConnected()
+```
+
+`Simulacrum` is not part of this linked product: its normal contact, calendar,
+reminder, and photo seeding is driven entirely from the Mac app or the
+`simsalabim` CLI and requires no dependency in the app under test.
 
 ## Quick Start
 
@@ -89,17 +131,22 @@ Full reference: `man simsalabim`.
 ## Building blocks
 
 ```
-Simsalabim.app  (this repo: suite shell, one status item)
-  ├── Modules/ImpossiBLE    (git submodule → ImpossiBLEProviderKit)
-  ├── Modules/CAMouflage    (git submodule → CAMouflageProviderKit)
-  ├── Modules/NFCromancer   (git submodule → NFCromancerProviderKit)
-  ├── Modules/Simulacrum    (git submodule → SimulacrumProviderKit)
-  └── SimBridgeKit          (SPM dependency: transport + menu bar shell)
+Simsalabim package (this repo)
+  ├── SimsalabimClient  (one iOS product)
+  │   ├── ImpossiBLE
+  │   ├── CAMouflage
+  │   └── NFCromancer
+  └── Simsalabim.app    (suite shell, one macOS status item)
+      ├── ImpossiBLEProviderKit
+      ├── CAMouflageProviderKit
+      ├── NFCromancerProviderKit
+      ├── SimulacrumProviderKit
+      └── SimBridgeKit  (transport + menu bar shell)
 ```
 
-The submodule pins record exactly which product versions a suite release
-ships; `make check-pins` verifies they are reachable on each product's
-`origin/master`.
+The product repositories are Git submodules. Their pins record exactly which
+client and provider versions a Simsalabim release ships; `make check-pins`
+verifies they are reachable on each product's `origin/master`.
 
 ## Requirements
 
