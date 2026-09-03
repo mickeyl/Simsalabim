@@ -1,4 +1,4 @@
-.Dd August 28, 2026
+.Dd September 3, 2026
 .Dt SIMSALABIM 1
 .Os
 .Sh NAME
@@ -19,6 +19,7 @@
 .Op Fl -calendar
 .Op Fl -reminders
 .Op Fl -photos
+.Op Fl -health
 .Op Fl -device Ar udid
 .Op Fl -json
 .Sh DESCRIPTION
@@ -28,7 +29,8 @@ utility drives a running
 .Pa Simsalabim.app
 instance — the macOS menu bar suite that retrofits the iOS Simulator with
 real Bluetooth, camera, and NFC hardware, plus seeded Contacts, Calendar,
-Reminders, and Photos data — from the command line, for scripting and CI.
+Reminders, Photos, and Health data — from the command line, for scripting
+and CI.
 .Pp
 .Ic status
 and
@@ -73,7 +75,7 @@ Seeds a booted simulator with the fixture Simulacrum's own UI stores at
 .Pa ~/Library/Application\~Support/Simulacrum/fixture.json .
 With no category flag
 .Po
-.Fl -contacts , Fl -calendar , Fl -reminders , Fl -photos
+.Fl -contacts , Fl -calendar , Fl -reminders , Fl -photos , Fl -health
 .Pc
 given, seeds every category.
 Without
@@ -83,6 +85,8 @@ than one.
 With
 .Fl -json ,
 prints the finished summary as JSON instead of plain text.
+The first Health seed presents Apple's authorization sheet in the target
+Simulator and therefore requires one interactive grant.
 .El
 .Sh FILES
 .Bl -tag -width "/tmp/simulacrum.sock"

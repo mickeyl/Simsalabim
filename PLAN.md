@@ -312,3 +312,76 @@ level up). Implemented once in SimBridgeKit's server:
 - Shared simulator-side connection core (constraint 4 note in §3.2).
 - New modules (ExternalAccessory, CoreNFC, CoreMotion, …) — each starts as a
   product repo following the post-Step-3 template.
+- **Consolidated Simsalabim Showcase iOS app.** Add a developer-facing iOS
+  app to this repository that exercises every provider end to end in one
+  booted Simulator. It is an integration harness and product showcase, not a
+  replacement for the focused sample apps in the product repositories; those
+  must remain independently buildable and useful when developing a provider
+  outside the suite.
+
+  **Dependency and target shape:**
+
+  - The app lives in Simsalabim and preserves the downward dependency rule.
+    It links the existing `SimsalabimClient` umbrella to activate the
+    ImpossiBLE, CAMouflage, and NFCromancer simulator bridges. No product or
+    SimBridgeKit target may depend back on the showcase.
+  - Add `SimulacrumClientKit` separately for the optional live Health channel.
+    Store-backed Contacts, Calendar, Reminders, Photos, Health samples, and
+    workouts remain host-seeded by Simulacrum; they must not be duplicated as
+    in-app fixtures or replaced with private database writes.
+  - Make the iOS app a first-class generated target (prefer XcodeGen, matching
+    Simulacrum's entitled SeedAgent) with committed source configuration and
+    discoverable root `make showcase-build`, `showcase-run`, and
+    `showcase-test` entry points. Do not commit a generated `.xcodeproj` when
+    `project.yml` is the source of truth.
+  - The target owns the union of the required iOS usage descriptions and
+    capabilities, including camera, Bluetooth, NFC, and HealthKit. Keep real
+    device builds possible: simulator bridge packages already become no-ops
+    there, and showcase-only diagnostics should be gated without changing the
+    providers' public runtime behavior.
+
+  **Showcase surfaces:**
+
+  - A landing screen reports the connection/readiness of every provider and
+    clearly distinguishes host mode (Off/Mock/Passthrough), authorization,
+    socket ownership/blocking, and last activity. Provider modes remain
+    independently controlled by the Mac suite; the iOS app must not invent a
+    global mode.
+  - BLE demonstrates scan, connect/disconnect, service and characteristic
+    discovery, read/write, notifications, and the mock L2CAP handler where the
+    configured fixture supports it.
+  - Camera demonstrates authorization, capture-session lifecycle, live
+    preview, camera switching when available, and still capture so mock and
+    passthrough frames travel through the same AVFoundation path an app uses.
+  - NFC demonstrates session lifecycle, cancellation/error states, and reading
+    the configured mock or passthrough tag through CoreNFC rather than through
+    a provider-specific shortcut.
+  - Simulacrum shows representative Contacts, Calendar, Reminders, and Photos
+    queries from their public frameworks; Health shows authorization state,
+    historical samples, workouts, and observed live heart rate. Fall events
+    arrive through `SimulacrumClientKit` and are explicitly labelled simulated
+    semantic events rather than HealthKit/Core Motion records.
+
+  **Authorization and automation:**
+
+  - Do not swizzle or forge Health authorization. HealthKit's store and consent
+    UI are system-owned; a process-local fake would hide integration failures
+    and would not authorize real reads. Request the exact read types used by
+    the showcase and expose a useful not-authorized state in the UI.
+  - Reuse the proven semantic XCUITest approach from Simulacrum for development
+    setup: locate the Health sheet's named "Turn On All"/"Select All" and
+    "Allow" controls, never coordinate-tap the Simulator. Tests must also pass
+    deterministically when a simulator has already granted access.
+  - Give every interactive control and observable result a stable accessibility
+    identifier. UI tests should select provider modes through the suite's
+    control surface or a supported test setup path, then exercise the real iOS
+    framework APIs and assert visible results.
+
+  **Definition of done:** a fresh recursive clone can build and launch the Mac
+  suite plus the showcase through documented `make` targets; a booted supported
+  Simulator can demonstrate all four products without editing the showcase's
+  source; mock-mode UI tests cover one representative success and failure path
+  per provider; live Health playback and its optional fall event can be started
+  and stopped cleanly; standalone provider sample apps still build; and no test
+  leaves an active capture session, scan, NFC session, workout, client socket,
+  or temporary simulator behind.

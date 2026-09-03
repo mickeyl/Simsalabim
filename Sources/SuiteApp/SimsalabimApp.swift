@@ -19,6 +19,7 @@ final class SuiteRuntime {
     let nfcServer: TagServer
     let nfcController: ModeTransitionController<ProviderMode>
     let seedServer: SeedServer
+    let liveHealthServer: LiveEventServer
     let fixtureStore: FixtureStore
     let seedRunner: SeedRunner
     let controlServer: SuiteControlServer
@@ -96,8 +97,11 @@ final class SuiteRuntime {
         let seedServer = SeedServer()
         self.seedServer = seedServer
         seedServer.start()
+        let liveHealthServer = LiveEventServer()
+        self.liveHealthServer = liveHealthServer
+        liveHealthServer.start()
         fixtureStore = FixtureStore()
-        seedRunner = SeedRunner(server: seedServer)
+        seedRunner = SeedRunner(server: seedServer, liveEventServer: liveHealthServer)
 
         // Lets external tooling (the `simsalabim` CLI) drive the same
         // ModeTransitionControllers the menu bar UI does, live.
@@ -135,8 +139,10 @@ final class SuiteAppDelegate: NSObject, NSApplicationDelegate {
             runtime.camServer.stop {
                 runtime.nfcServer.stop {
                     runtime.seedServer.stop {
-                        runtime.controlServer.stop {
-                            sender.reply(toApplicationShouldTerminate: true)
+                        runtime.liveHealthServer.stop {
+                            runtime.controlServer.stop {
+                                sender.reply(toApplicationShouldTerminate: true)
+                            }
                         }
                     }
                 }

@@ -5,7 +5,7 @@ import SimulacrumProviderKit
 struct SeedCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "seed",
-        abstract: "Seed a booted simulator with the stored Contacts/Calendar/Reminders/Photos fixture.",
+        abstract: "Seed a booted simulator with the stored Contacts/Calendar/Reminders/Photos/Health fixture.",
         discussion: """
         With no category flag, seeds every category. Simsalabim.app must not
         be running — it already owns /tmp/simulacrum.sock.
@@ -28,6 +28,9 @@ struct SeedCommand: AsyncParsableCommand {
     @Flag(help: "Seed photos.")
     var photos = false
 
+    @Flag(help: "Seed Health history and workouts.")
+    var health = false
+
     @Option(name: .customLong("device"), help: "UDID of the target simulator. Defaults to the single booted simulator.")
     var device: String?
 
@@ -36,7 +39,7 @@ struct SeedCommand: AsyncParsableCommand {
 
     @MainActor
     func run() async throws {
-        let categoriesRequested = contacts || calendar || reminders || photos
+        let categoriesRequested = contacts || calendar || reminders || photos || health
         let includeAll = !categoriesRequested
 
         let udid = try resolveDevice()
@@ -45,7 +48,8 @@ struct SeedCommand: AsyncParsableCommand {
             contacts: (includeAll || contacts) ? stored.contacts : [],
             events: (includeAll || calendar) ? stored.events : [],
             reminders: (includeAll || reminders) ? stored.reminders : [],
-            photos: (includeAll || photos) ? stored.photos : []
+            photos: (includeAll || photos) ? stored.photos : [],
+            health: (includeAll || health) ? stored.health : nil
         )
 
         let seedServer = SeedServer()
@@ -96,13 +100,16 @@ struct SeedCommand: AsyncParsableCommand {
                 "events": summary.events,
                 "reminders": summary.reminders,
                 "photos": summary.photos,
+                "healthSamples": summary.healthSamples,
+                "workouts": summary.workouts,
+                "fallEvents": summary.fallEvents,
                 "errors": summary.errors,
             ]
             if let data = try? JSONSerialization.data(withJSONObject: payload) {
                 print(String(decoding: data, as: UTF8.self))
             }
         } else {
-            print("contacts=\(summary.contacts) events=\(summary.events) reminders=\(summary.reminders) photos=\(summary.photos)")
+            print("contacts=\(summary.contacts) events=\(summary.events) reminders=\(summary.reminders) photos=\(summary.photos) healthSamples=\(summary.healthSamples) workouts=\(summary.workouts) fallEvents=\(summary.fallEvents)")
             for error in summary.errors {
                 note("Error: \(error)")
             }

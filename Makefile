@@ -33,14 +33,18 @@ MAN_INSTALL_DIR = $(prefix)/share/man/man1
 
 # SeedAgent (Simulacrum's simulator-installed app) ships as a bundled
 # resource, same as the module icons above — one suite build produces a
-# host app that can seed on its own. Cross-compiled for the iOS Simulator
-# SDK straight from the submodule checkout; ad hoc signing is sufficient
-# for `simctl install` (see Modules/Simulacrum/Makefile's own `agent`
-# target, which this mirrors).
+# host app that can seed on its own. Xcode's iOS app build embeds HealthKit's
+# simulator entitlement; the result must not be re-signed by hand (see the
+# module Makefile's `agent` target, which this mirrors).
 AGENT_DIR = Modules/Simulacrum
-AGENT_SDK := $(shell xcrun --sdk iphonesimulator --show-sdk-path)
-AGENT_TRIPLE ?= arm64-apple-ios17.0-simulator
+AGENT_SRCS = $(shell find $(AGENT_DIR)/Sources/SeedAgent $(AGENT_DIR)/Sources/SimulacrumWire -name '*.swift' -not -path '*/.build/*' 2>/dev/null)
 AGENT_APP = $(AGENT_DIR)/SeedAgent.app
+AGENT_ENTITLEMENTS = $(AGENT_DIR)/Sources/SeedAgent/Resources/entitlements.plist
+AGENT_PROJECT_SPEC = $(AGENT_DIR)/project.yml
+AGENT_PROJECT = $(AGENT_DIR)/SeedAgent.xcodeproj
+AGENT_DERIVED_DATA = $(AGENT_DIR)/.build/SeedAgent-Xcode
+AGENT_CONFIGURATION ?= Debug
+AGENT_BUILT_APP = $(AGENT_DERIVED_DATA)/Build/Products/$(AGENT_CONFIGURATION)-iphonesimulator/SeedAgent.app
 FIXTURE_PHOTOS_SOURCE = $(AGENT_DIR)/Sources/Simulacrum-Mac/Resources/Fixtures
 
 # Monotonic build number derived from commit count; falls back to the value
@@ -102,8 +106,8 @@ suite-debug:
 	@mkdir -p $(SUITE_BUNDLE)/Contents/MacOS $(SUITE_BUNDLE)/Contents/Resources
 	@cp $(SUITE_PLIST) $(SUITE_BUNDLE)/Contents/Info.plist
 	@if [ -n "$(BUILD_NUMBER)" ]; then /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(BUILD_NUMBER)" $(SUITE_BUNDLE)/Contents/Info.plist; fi
-	swift build $(SWIFTPM_FLAGS)
-	@cp $$(swift build $(SWIFTPM_FLAGS) --show-bin-path)/$(SUITE_BIN_NAME) $(SUITE_BIN)
+	swift build $(SWIFTPM_FLAGS) --product $(SUITE_BIN_NAME)
+	@cp $$(swift build $(SWIFTPM_FLAGS) --product $(SUITE_BIN_NAME) --show-bin-path)/$(SUITE_BIN_NAME) $(SUITE_BIN)
 	@cp $(FONT_RESOURCE) $(SUITE_BUNDLE)/Contents/Resources/
 	@for icon in $(MODULE_ICONS); do [ -f "$$icon" ] && cp "$$icon" $(SUITE_BUNDLE)/Contents/Resources/ || true; done
 	@$(MAKE) --no-print-directory icon bundle-agent
@@ -115,12 +119,12 @@ relaunch: suite-debug
 	@open "$(SUITE_BUNDLE)"
 	@echo "Simsalabim relaunched (debug build)"
 
-$(SUITE_BIN): $(SUITE_SRCS) $(SUITE_PLIST) $(SUITE_ENTITLEMENTS)
+$(SUITE_BIN): $(SUITE_SRCS) $(SUITE_PLIST) $(SUITE_ENTITLEMENTS) $(AGENT_APP)
 	mkdir -p $(SUITE_BUNDLE)/Contents/MacOS $(SUITE_BUNDLE)/Contents/Resources
 	cp $(SUITE_PLIST) $(SUITE_BUNDLE)/Contents/Info.plist
 	@if [ -n "$(BUILD_NUMBER)" ]; then /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(BUILD_NUMBER)" $(SUITE_BUNDLE)/Contents/Info.plist; fi
-	swift build $(SWIFTPM_FLAGS) -c release
-	cp $$(swift build $(SWIFTPM_FLAGS) -c release --show-bin-path)/$(SUITE_BIN_NAME) $(SUITE_BIN)
+	swift build $(SWIFTPM_FLAGS) -c release --product $(SUITE_BIN_NAME)
+	cp $$(swift build $(SWIFTPM_FLAGS) -c release --product $(SUITE_BIN_NAME) --show-bin-path)/$(SUITE_BIN_NAME) $(SUITE_BIN)
 	cp $(FONT_RESOURCE) $(SUITE_BUNDLE)/Contents/Resources/
 	@for icon in $(MODULE_ICONS); do [ -f "$$icon" ] && cp "$$icon" $(SUITE_BUNDLE)/Contents/Resources/ || true; done
 	@$(MAKE) --no-print-directory icon bundle-agent
@@ -149,18 +153,16 @@ icon:
 		rm -rf /tmp/simsalabim-icon.iconset; \
 	fi
 
-# Cross-compiles SeedAgent for the iOS Simulator SDK from the Simulacrum
-# submodule and copies the ad-hoc-signed .app plus its fixture photo
+# Builds SeedAgent as an iOS Simulator app from the Simulacrum submodule and
+# copies the Xcode-signed .app plus its fixture photo
 # swatches into the suite bundle's Resources — SeedRunner (inside
 # SimulacrumProviderKit) finds both via Bundle.main.resourceURL, whichever
 # host app it's running in.
-$(AGENT_APP):
-	@cd $(AGENT_DIR) && swift build $(SWIFTPM_FLAGS) --sdk $(AGENT_SDK) --triple $(AGENT_TRIPLE) 2>&1 | tail -3
+$(AGENT_APP): $(AGENT_SRCS) $(AGENT_DIR)/Sources/SeedAgent/Resources/Info.plist $(AGENT_ENTITLEMENTS) $(AGENT_PROJECT_SPEC)
+	@cd $(AGENT_DIR) && xcodegen generate --spec project.yml >/dev/null
+	@cd $(AGENT_DIR) && xcodebuild -project SeedAgent.xcodeproj -scheme SeedAgent -configuration $(AGENT_CONFIGURATION) -sdk iphonesimulator -derivedDataPath .build/SeedAgent-Xcode build 2>&1 | tail -3
 	@rm -rf $(AGENT_APP)
-	@mkdir -p $(AGENT_APP)
-	@cp $$(cd $(AGENT_DIR) && swift build $(SWIFTPM_FLAGS) --sdk $(AGENT_SDK) --triple $(AGENT_TRIPLE) --show-bin-path)/SeedAgent $(AGENT_APP)/SeedAgent
-	@cp $(AGENT_DIR)/Sources/SeedAgent/Resources/Info.plist $(AGENT_APP)/Info.plist
-	@codesign --force --sign - $(AGENT_APP) >/dev/null
+	@cp -R $(AGENT_BUILT_APP) $(AGENT_APP)
 
 bundle-agent: $(AGENT_APP)
 	@mkdir -p $(SUITE_BUNDLE)/Contents/Resources/Fixtures
@@ -169,7 +171,7 @@ bundle-agent: $(AGENT_APP)
 	@cp $(FIXTURE_PHOTOS_SOURCE)/*.png $(SUITE_BUNDLE)/Contents/Resources/Fixtures/ 2>/dev/null || true
 
 agent-clean:
-	rm -rf $(AGENT_APP)
+	rm -rf $(AGENT_APP) $(AGENT_PROJECT) $(AGENT_DERIVED_DATA)
 
 cli: $(AGENT_APP)
 	swift build $(SWIFTPM_FLAGS) -c release --product $(CLI_BIN_NAME)
