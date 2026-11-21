@@ -1,0 +1,3 @@
+interface:
+  display_name: "Simsalabim"
+  short_description: "Configure simulator providers and seed app test data"
